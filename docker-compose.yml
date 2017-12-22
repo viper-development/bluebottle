@@ -26,6 +26,10 @@ services:
       #- EMAIL_HOST=localhost
       #- EMAIL_PORT=1025
       #- EMAIL_USER_TLS=False
+      #- MEDIA_ROOT=
+      #- TENANT_BASE=
+      #- PRIVATE_MEDIA_ROOT=
+      #- MULTI_TENANT_DIR=
     volumes:
       - ./tenants:/app/tenants
     command: ./run-api.sh
