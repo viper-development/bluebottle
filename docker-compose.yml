@@ -1,0 +1,46 @@
+version: '3'
+
+services:
+  bluebottle:
+    build: .
+    # dockerfile: Dockerfile
+    image: bluebottle:latest
+    container_name: goodup-bluebottle
+    ports:
+      - "8000:8000"
+    depends_on:
+      - db
+    networks:
+      - goodup-network
+    environment:
+      - DEBUG=True
+      - DB_HOST=db
+      - DB_USER=bluebottle
+      - DB_PASSWORD=bluebottle
+      - C_FORCE_ROOT=true
+      - DJANGO_SETTINGS_MODULE=bluebottle.settings.docker
+      #- SECRET_KEY="a secret key"
+      #- ALLOWED_HOSTS=*
+      #- DB_PORT=5432
+      #- DB_NAME=bluebottle
+      #- EMAIL_HOST=localhost
+      #- EMAIL_PORT=1025
+      #- EMAIL_USER_TLS=False
+    volumes:
+      - ./tenants:/app/tenants
+    command: ./run-api.sh
+  db:
+    image: postgres:9.1
+    container_name: goodup-postgres
+    ports:
+      - "5433:5432"
+    networks:
+      - goodup-network
+    volumes:
+      - ./postgres-data:/var/lib/postgresql/data
+    environment:
+      POSTGRES_USER: bluebottle
+      POSTGRES_PASSWORD: bluebottle
+
+networks:
+  goodup-network:
