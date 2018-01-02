@@ -2,7 +2,7 @@
 
 SECRET_KEY = env.get('SECRET_KEY', 'create a long random string here')
 
-from os import environ as env
+from os import environ as env, path
 from bluebottle.settings.base import *
 
 DEBUG = env.get('DEBUG', 'False').lower() == 'true'
@@ -34,10 +34,10 @@ EMAIL_USE_TLS = env.get('EMAIL_USE_TLS', 'False').lower() == 'true'
 SEND_MAIL = env.get('SEND_MAIL', 'True').lower() == 'true'
 SEND_WELCOME_MAIL = env.get('SEND_WELCOME_MAIL', 'True').lower() == 'true'
 
-MEDIA_ROOT = env.get('MEDIA_ROOT', os.path.join(PROJECT_ROOT, 'static', 'media'))
+MEDIA_ROOT = env.get('MEDIA_ROOT', path.join(PROJECT_ROOT, 'static', 'media'))
 
-TENANT_BASE = env.get('TENANT_BASE', os.path.join(PROJECT_ROOT, 'static', 'media'))
+TENANT_BASE = env.get('TENANT_BASE', path.join(PROJECT_ROOT, 'static', 'media'))
 
-PRIVATE_MEDIA_ROOT = env.get('PRIVATE_MEDIA_ROOT', os.path.join(PROJECT_ROOT, 'private', 'media'))
+PRIVATE_MEDIA_ROOT = env.get('PRIVATE_MEDIA_ROOT', path.join(PROJECT_ROOT, 'private', 'media'))
 
-MULTI_TENANT_DIR = env.get('MULTI_TENANT_DIR', os.path.join(PROJECT_ROOT, 'tenants'))
+MULTI_TENANT_DIR = env.get('MULTI_TENANT_DIR', path.join(PROJECT_ROOT, 'tenants'))
