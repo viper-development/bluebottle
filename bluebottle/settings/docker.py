@@ -1,10 +1,8 @@
 # flake8: noqa
-
-SECRET_KEY = env.get('SECRET_KEY', 'create a long random string here')
-
 from os import environ as env, path
 from bluebottle.settings.base import *
 
+SECRET_KEY = env.get('SECRET_KEY', 'create a long random string here')
 DEBUG = env.get('DEBUG', 'False').lower() == 'true'
 
 ALLOWED_HOSTS = env.get('ALLOWED_HOSTS', '*').split(',')
