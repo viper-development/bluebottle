@@ -90,6 +90,7 @@ install_requires = [
     'pyasn1==0.4.2',
     'pygeoip==0.3.2',
     'pyjwt==1.5.3',
+    'pymula==0.0.1',
     'pyOpenSSL==17.5.0',
     'python-dateutil==2.6.1',
     'python-memcached==1.58',
