@@ -26,6 +26,7 @@ class CellulantPaymentAdapter(BasePaymentAdapter):
     }
 
     def __init__(self, order_payment):
+        self.order_payment = order_payment
         self.client = MulaAdapter(
             self.credentials['client_id'],
             self.credentials['client_secret'],
@@ -36,16 +37,15 @@ class CellulantPaymentAdapter(BasePaymentAdapter):
     def _get_mapped_status(self, status):
         return self.STATUS_MAPPING[status]
 
-    def _get_payment_reference(self):
-        return "{}#{}".format(
-            self.credentials['account_number'],
-            self.payment.reference
-        )
-
     def create_payment(self):
         payment = CellulantPayment(
             order_payment=self.order_payment,
         )
+        payment.msisdn = '254800000000'
+        payment.account_number = '123456'
+        payment.reference = payment.order_payment.id
+        payment.amount = payment.order_payment.amount.amount
+
         response = self.client.initiate_transaction(
             msisdn=payment.msisdn,
             transaction_reference_id=payment.reference,
@@ -57,10 +57,14 @@ class CellulantPaymentAdapter(BasePaymentAdapter):
             language='en',
             payment_option='Mobile Money',
             payment_mode='push notification',
-            callback_url=None
+            callback_url=''
         )
-        payment.remote_reference = response['reference']
-        payment.save()
+        if response['results']:
+            payment.remote_reference = response['results']['reference']
+            payment.save()
+        if response['status']['statusCode'] == 500:
+            payment.status = 'failed'
+            payment.save()
         return payment
 
     def get_authorization_action(self):
@@ -70,7 +74,7 @@ class CellulantPaymentAdapter(BasePaymentAdapter):
                 'type': 'process',
                 'payload': {
                     'business_number': self.credentials['business_number'],
-                    'account_number': self._get_payment_reference(),
+                    'account_number': self.order_payment.order.project,
                     'amount': int(float(self.order_payment.amount))
                 }
             }
