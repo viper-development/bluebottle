@@ -1,10 +1,12 @@
 # coding=utf-8
 import logging
 
+from bluebottle.payments.exception import PaymentException
 from mula.adpaters import MulaAdapter
 
 from bluebottle.payments.adapters import BasePaymentAdapter
 from bluebottle.utils.utils import StatusDefinition
+from mula.exceptions import MulaPaymentException
 
 from .models import CellulantPayment
 
@@ -30,7 +32,7 @@ class CellulantPaymentAdapter(BasePaymentAdapter):
         self.client = MulaAdapter(
             self.credentials['client_id'],
             self.credentials['client_secret'],
-            self.credentials['client_code']
+            self.credentials['service_code']
         )
         super(CellulantPaymentAdapter, self).__init__(order_payment)
 
@@ -46,24 +48,25 @@ class CellulantPaymentAdapter(BasePaymentAdapter):
         payment.reference = payment.order_payment.id
         payment.amount = payment.order_payment.amount.amount
 
-        response = self.client.initiate_transaction(
-            msisdn=payment.msisdn,
-            transaction_reference_id=payment.reference,
-            account_number=payment.account_number,
-            amount=payment.amount,
-            currency_code='KES',
-            country_code='KE',
-            payment_method='MPESA',
-            language='en',
-            payment_option='Mobile Money',
-            payment_mode='push notification',
-            callback_url=''
-        )
+        try:
+            response = self.client.checkout_request(
+                msisdn=payment.msisdn,
+                transaction_id=payment.reference,
+                account_number=payment.account_number,
+                amount=payment.amount,
+                currency_code='KES',
+                country_code='KE',
+                description='Thanks for your donation',
+                due_date=None,
+                callback_url=None,
+                customer_first_name='Nomen',
+                customer_last_name='Nescio',
+                customer_email='nomen@example.com')
+        except MulaPaymentException as e:
+            raise PaymentException('Could not start M-PESA transaction: {}'.format(e))
+
         if response['results']:
-            payment.remote_reference = response['results']['reference']
-            payment.save()
-        if response['status']['statusCode'] == 500:
-            payment.status = 'failed'
+            payment.remote_reference = response['results']['checkoutRequestID']
             payment.save()
         return payment
 
@@ -74,7 +77,7 @@ class CellulantPaymentAdapter(BasePaymentAdapter):
                 'type': 'process',
                 'payload': {
                     'business_number': self.credentials['business_number'],
-                    'account_number': self.order_payment.order.project,
+                    'account_number': self.order_payment.order.donations.first().project.id,
                     'amount': int(float(self.order_payment.amount))
                 }
             }
