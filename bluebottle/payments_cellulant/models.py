@@ -39,8 +39,8 @@ class CellulantPayment(Payment):
         null=True, blank=True,
         max_length=200)
 
-    payment_method = models.CharField(
-        help_text="Cellulant payment method",
+    payer_mode_id = models.CharField(
+        help_text="Cellulant payer mode (payment method)",
         null=True, blank=True,
         max_length=200)
 
@@ -49,13 +49,8 @@ class CellulantPayment(Payment):
         null=True, blank=True,
         max_length=200)
 
-    payment_option = models.CharField(
-        help_text="Cellulant payment option",
-        null=True, blank=True,
-        max_length=200)
-
-    payment_mode = models.CharField(
-        help_text="Cellulant payment mode",
+    description = models.CharField(
+        help_text="Cellulant description",
         null=True, blank=True,
         max_length=200)
 

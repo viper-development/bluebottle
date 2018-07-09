@@ -1,3 +1,4 @@
+from bluebottle.payments_cellulant.admin import CellulantPaymentAdmin
 from django.conf.urls import url
 from django.contrib import admin
 from django.core.urlresolvers import reverse
@@ -163,7 +164,8 @@ class PaymentAdmin(PolymorphicParentModelAdmin):
                 VoucherPaymentAdmin, InterswitchPaymentAdmin,
                 FlutterwavePaymentAdmin, LipishaPaymentAdmin,
                 TelesomPaymentAdmin, VitepayPaymentAdmin,
-                BeyonicPaymentAdmin, ExternalPaymentAdmin
+                BeyonicPaymentAdmin, ExternalPaymentAdmin,
+                CellulantPaymentAdmin
             )
         )
 

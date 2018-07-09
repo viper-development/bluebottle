@@ -1,4 +1,5 @@
 # coding=utf-8
+import json
 import logging
 
 from bluebottle.payments.exception import PaymentException
@@ -43,10 +44,18 @@ class CellulantPaymentAdapter(BasePaymentAdapter):
         payment = CellulantPayment(
             order_payment=self.order_payment,
         )
+        self.card_data = self.order_payment.card_data
+
         payment.msisdn = '254800000000'
         payment.account_number = '123456'
         payment.reference = payment.order_payment.id
         payment.amount = payment.order_payment.amount.amount
+        payment.currency = 'KES'
+        payment.country_code = 'KE'
+        payment.callback_url = 'http://cell.requestcatcher.com/'
+        payment.payer_mode_id = '3'  # M-PESA push
+        payment.status = 'started'
+        payment.save()
 
         try:
             response = self.client.checkout_request(
@@ -54,43 +63,76 @@ class CellulantPaymentAdapter(BasePaymentAdapter):
                 transaction_id=payment.reference,
                 account_number=payment.account_number,
                 amount=payment.amount,
-                currency_code='KES',
-                country_code='KE',
-                description='Thanks for your donation',
+                currency_code=payment.currency,
+                country_code=payment.country_code,
+                description=payment.description,
                 due_date=None,
-                callback_url=None,
+                callback_url=payment.callback_url,
                 customer_first_name='Nomen',
                 customer_last_name='Nescio',
                 customer_email='nomen@example.com')
         except MulaPaymentException as e:
             raise PaymentException('Could not start M-PESA transaction: {}'.format(e))
+        payment.response = json.dumps(response)
 
-        if response['results']:
-            payment.remote_reference = response['results']['checkoutRequestID']
+        if not response.get('results', None):
+            payment.status = 'failed'
             payment.save()
+            return payment
+
+        payment.remote_reference = response['results']['checkoutRequestID']
+
+        try:
+            response = self.client.charge_request(
+                msisdn=payment.msisdn,
+                transaction_id=payment.reference,
+                checkout_request_id=payment.remote_reference,
+                amount=payment.amount,
+                currency_code=payment.currency,
+                payer_mode_id=payment.payer_mode_id,
+                language_code='en',
+                country_code=payment.country_code)
+        except MulaPaymentException as e:
+            raise PaymentException('Could not start M-PESA transaction: {}'.format(e))
+
+        payment.response = json.dumps(response)
+
+        if not response.get('results', None):
+            payment.status = 'failed'
+            payment.save()
+            return payment
+
+        payment.status = 'started'
+        payment.save()
+        self.payment = payment
         return payment
 
     def get_authorization_action(self):
 
-        if self.payment.status == 'started':
+        self.check_payment_status()
+        if self.payment.status in ['settled', 'authorized']:
             return {
-                'type': 'process',
-                'payload': {
-                    'business_number': self.credentials['business_number'],
-                    'account_number': self.order_payment.order.donations.first().project.id,
-                    'amount': int(float(self.order_payment.amount))
-                }
+                'type': 'success'
             }
         else:
-            self.check_payment_status()
-            if self.payment.status in ['settled', 'authorized']:
-                return {
-                    'type': 'success'
-                }
-            else:
-                return {
-                    'type': 'pending'
-                }
+            return {
+                'type': 'pending'
+            }
 
     def check_payment_status(self):
-        pass
+        payment = self.order_payment.payment
+
+        try:
+            response = self.client.request_status(
+                transaction_id=payment.reference,
+                checkout_request_id=payment.remote_reference
+            )
+        except MulaPaymentException as e:
+            raise PaymentException('Could not check M-PESA transaction: {}'.format(e))
+
+        payment.response = json.dumps(response)
+
+        if not response.get('results', None):
+            payment.status = 'failed'
+            payment.save()
+            return payment
