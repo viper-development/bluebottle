@@ -2,12 +2,13 @@
 import json
 import logging
 
-from bluebottle.payments.exception import PaymentException
+from moneyed.classes import Money
 from mula.adpaters import MulaAdapter
-
-from bluebottle.payments.adapters import BasePaymentAdapter
-from bluebottle.utils.utils import StatusDefinition
 from mula.exceptions import MulaPaymentException
+
+from bluebottle.payments.exception import PaymentException
+from bluebottle.payments.adapters import BasePaymentAdapter
+
 
 from .models import CellulantPayment
 
@@ -16,17 +17,6 @@ logger = logging.getLogger()
 
 class CellulantPaymentAdapter(BasePaymentAdapter):
     card_data = {}
-
-    STATUS_MAPPING = {
-        'Requested': StatusDefinition.CREATED,
-        'Completed': StatusDefinition.SETTLED,
-        'Cancelled': StatusDefinition.CANCELLED,
-        'Voided': StatusDefinition.FAILED,
-        'Acknowledged': StatusDefinition.AUTHORIZED,
-        'Authorized': StatusDefinition.AUTHORIZED,
-        'Settled': StatusDefinition.SETTLED,
-        'Reversed': StatusDefinition.REFUNDED
-    }
 
     def __init__(self, order_payment):
         self.order_payment = order_payment
@@ -37,8 +27,17 @@ class CellulantPaymentAdapter(BasePaymentAdapter):
         )
         super(CellulantPaymentAdapter, self).__init__(order_payment)
 
-    def _get_mapped_status(self, status):
-        return self.STATUS_MAPPING[status]
+    def _update_amounts(self, payment, amount, currency):
+        order_payment = payment.order_payment
+        order_payment.amount = Money(amount, currency)
+        order_payment.save()
+
+        donation = payment.order_payment.order.donations.first()
+        donation.amount = Money(amount, currency)
+        donation.save()
+
+        payment.amount = amount
+        payment.save()
 
     def create_payment(self):
         payment = CellulantPayment(
@@ -46,15 +45,15 @@ class CellulantPaymentAdapter(BasePaymentAdapter):
         )
         self.card_data = self.order_payment.card_data
 
-        payment.msisdn = '254800000000'
+        payment.msisdn = self.card_data['mobile']
         payment.account_number = '123456'
         payment.reference = payment.order_payment.id
         payment.amount = payment.order_payment.amount.amount
         payment.currency = 'KES'
         payment.country_code = 'KE'
-        payment.callback_url = 'http://cell.requestcatcher.com/'
-        payment.payer_mode_id = '3'  # M-PESA push
+        payment.callback_url = 'https://webhook.site/a9285d46-23c8-4c69-b2b2-0017ca024856'
         payment.status = 'started'
+        payment.description = 'Test'
         payment.save()
 
         try:
@@ -74,6 +73,12 @@ class CellulantPaymentAdapter(BasePaymentAdapter):
         except MulaPaymentException as e:
             raise PaymentException('Could not start M-PESA transaction: {}'.format(e))
         payment.response = json.dumps(response)
+
+        # Lookup id for Mpesa USSD Push
+        options = response['results']['paymentOptions']
+        mpesa = [i for i in options if i['paymentModeID'] == 3][0]
+
+        payment.payer_mode_id = mpesa['payerModeID']
 
         if not response.get('results', None):
             payment.status = 'failed'
@@ -95,7 +100,7 @@ class CellulantPaymentAdapter(BasePaymentAdapter):
         except MulaPaymentException as e:
             raise PaymentException('Could not start M-PESA transaction: {}'.format(e))
 
-        payment.response = json.dumps(response)
+        payment.update_response = json.dumps(response)
 
         if not response.get('results', None):
             payment.status = 'failed'
@@ -110,13 +115,20 @@ class CellulantPaymentAdapter(BasePaymentAdapter):
     def get_authorization_action(self):
 
         self.check_payment_status()
+
+        # Later include instructions how to manually transer the money.
+        # We need to know Paybill and Account number for this.
+        message = "You will receive a USSD push notification shortly. " \
+                  "Please confirm the payment with your PIN."
+
         if self.payment.status in ['settled', 'authorized']:
             return {
                 'type': 'success'
             }
         else:
             return {
-                'type': 'pending'
+                'type': 'process',
+                'payload': message
             }
 
     def check_payment_status(self):
@@ -130,9 +142,17 @@ class CellulantPaymentAdapter(BasePaymentAdapter):
         except MulaPaymentException as e:
             raise PaymentException('Could not check M-PESA transaction: {}'.format(e))
 
-        payment.response = json.dumps(response)
+        payment.update_response = "{}\n{}".format(payment.update_response, json.dumps(response))
+        payment.save()
 
         if not response.get('results', None):
             payment.status = 'failed'
             payment.save()
             return payment
+
+        amount_paid = response['results']['amountPaid']
+        if amount_paid > 0:
+            if amount_paid != payment.amount:
+                self._update_amounts(payment, amount_paid, payment.currency)
+            payment.status = 'settled'
+            payment.save()

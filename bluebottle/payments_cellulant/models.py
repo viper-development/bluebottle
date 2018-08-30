@@ -14,6 +14,11 @@ class CellulantPayment(Payment):
         null=True, blank=True,
         max_length=200)
 
+    remote_reference = models.CharField(
+        help_text="Cellulant transaction reference",
+        null=True, blank=True,
+        max_length=200)
+
     msisdn = models.CharField(
         help_text="Cellulant msisdn (phone number)",
         null=True, blank=True,

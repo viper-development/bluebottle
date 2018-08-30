@@ -92,10 +92,10 @@ class PaymentService(object):
             class_path = 'bluebottle.' + app_name + '.adapters.' + class_name
             try:
                 adapter_class = get_class(class_path)
-            except GetClassError:
+            except GetClassError as e:
                 raise PaymentException(
-                    "Couldn't find an adapter for payment method '{0}'".format(
-                        self.order_payment.payment_method))
+                    "Couldn't find an adapter for payment method '{}': {}".format(
+                        self.order_payment.payment_method, e))
 
         adapter = adapter_class(self.order_payment)
         return adapter
