@@ -24,6 +24,7 @@ def send_welcome_mail(user=None):
         'user': user,
         'first_name': user.first_name,
         'contact_email': properties.CONTACT_EMAIL,
+        'closed_site': properties.CLOSED_SITE,
         'token': default_token_generator.make_token(user),
         'uid': int_to_base36(user.pk),
         'LANGUAGE_CODE': user.primary_language,
@@ -45,6 +46,9 @@ def send_welcome_mail(user=None):
             to=user,
             **data
         )
+
+    user.welcome_email_is_sent = True
+    user.save()
 
 
 def valid_email(email=None):

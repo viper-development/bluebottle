@@ -1,14 +1,20 @@
+import mimetypes
+import os
 from collections import namedtuple
+
+import magic
 
 from django.conf import settings
 from django.core.signing import TimestampSigner, BadSignature
-from django.http.response import HttpResponseNotFound, HttpResponse
-from django.http import Http404
+from django.http.response import HttpResponseNotFound
+from django.http import Http404, HttpResponse
 from django.template.loader import render_to_string
 from django.utils.translation import ugettext as _
 from django.utils import translation
+from django.views.generic import TemplateView
 from django.views.generic.base import View
 from django.views.generic.detail import DetailView
+from parler.utils.i18n import get_language
 
 from rest_framework import generics
 from rest_framework import views, response
@@ -23,6 +29,9 @@ from bluebottle.utils.permissions import ResourcePermission
 
 from .models import Language
 from .serializers import ShareSerializer, LanguageSerializer
+
+
+mime = magic.Magic(mime=True)
 
 
 class TagList(views.APIView):
@@ -171,6 +180,15 @@ class ViewPermissionsMixin(object):
         return model_cls
 
 
+class LoginWithView(TemplateView):
+
+    template_name = 'utils/login_with.html'
+
+    def get(self, request, *args, **kwargs):
+        context = self.get_context_data(**kwargs)
+        return self.render_to_response(context)
+
+
 class PermissionedView(View, ViewPermissionsMixin):
     pass
 
@@ -243,11 +261,18 @@ class PrivateFileView(DetailView):
 
     def get(self, request, *args, **kwargs):
         field = getattr(self.get_object(), self.field)
+        filename = os.path.basename(field.name)
+        content_type = mimetypes.guess_type(filename)[0]
         response = HttpResponse()
         response['X-Accel-Redirect'] = field.url
+        response['Content-Type'] = content_type
         response['Content-Disposition'] = 'attachment; filename="{}"'.format(
             field.name
         )
+        try:
+            response['Content-Type'] = mime.from_file(field.path)
+        except IOError:
+            pass
 
         return response
 
@@ -265,4 +290,13 @@ class OwnerListViewMixin(object):
             user = self.request.user if self.request.user.is_authenticated else None
             qs = qs.filter(**{self.owner_filter_field: user})
 
+        return qs
+
+
+class TranslatedApiViewMixin(object):
+    def get_queryset(self):
+        qs = super(TranslatedApiViewMixin, self).get_queryset().language(
+            get_language()
+        )
+        qs = qs.order_by(*qs.model._meta.ordering)
         return qs

@@ -1,3 +1,4 @@
+from django.utils.timezone import now
 import json
 import requests
 
@@ -7,13 +8,14 @@ from django.template import loader
 from django.contrib.auth.tokens import default_token_generator
 from django.http import Http404
 from django.utils.http import base36_to_int, int_to_base36
+from django.utils import timezone
 
 from rest_framework import status, views, response, generics
 from rest_framework.permissions import IsAuthenticated
-from rest_framework.exceptions import PermissionDenied
+from rest_framework.exceptions import PermissionDenied, NotAuthenticated
 
 from bluebottle.bb_accounts.permissions import CurrentUserPermission
-from bluebottle.utils.views import RetrieveAPIView
+from bluebottle.utils.views import RetrieveAPIView, UpdateAPIView
 from tenant_extras.utils import TenantLanguage
 
 from bluebottle.utils.email_backend import send_mail
@@ -22,8 +24,10 @@ from bluebottle.clients import properties
 from bluebottle.members.serializers import (
     UserCreateSerializer, ManageProfileSerializer, UserProfileSerializer,
     PasswordResetSerializer, PasswordSetSerializer, CurrentUserSerializer,
-    UserVerificationSerializer, UserDataExportSerializer
+    UserVerificationSerializer, UserDataExportSerializer, TokenLoginSerializer,
+    EmailSetSerializer, PasswordUpdateSerializer,
 )
+from bluebottle.members.tokens import login_token_generator
 
 USER_MODEL = get_user_model()
 
@@ -107,6 +111,19 @@ class CurrentUser(RetrieveAPIView):
         return self.request.user
 
 
+class Logout(generics.CreateAPIView):
+    """
+    Log the user out
+
+    """
+    def create(self, request, *args, **kwargs):
+        if self.request.user.is_authenticated:
+            self.request.user.last_logout = timezone.now()
+            self.request.user.save()
+
+        return response.Response('', status=status.HTTP_204_NO_CONTENT)
+
+
 class UserCreate(generics.CreateAPIView):
     """
     Create User
@@ -163,6 +180,33 @@ class PasswordReset(views.APIView):
         return response.Response(status=status.HTTP_200_OK)
 
 
+class PasswordProtectedMemberUpdateApiView(UpdateAPIView):
+    queryset = USER_MODEL.objects.all()
+
+    permission_classes = (CurrentUserPermission, )
+
+    def get_object(self):
+        if isinstance(self.request.user, AnonymousUser):
+            raise NotAuthenticated()
+        return self.request.user
+
+    def perform_update(self, serializer):
+        password = serializer.validated_data.pop('password')
+
+        if not self.request.user.check_password(password):
+            raise PermissionDenied()
+
+        return super(PasswordProtectedMemberUpdateApiView, self).perform_update(serializer)
+
+
+class EmailSetView(PasswordProtectedMemberUpdateApiView):
+    serializer_class = EmailSetSerializer
+
+
+class PasswordSetView(PasswordProtectedMemberUpdateApiView):
+    serializer_class = PasswordUpdateSerializer
+
+
 class PasswordSet(views.APIView):
     """
     Allows a new password to be set in the resource that is a valid password
@@ -206,6 +250,34 @@ class PasswordSet(views.APIView):
             return response.Response(status=status.HTTP_200_OK)
         return response.Response({'message': 'Token expired'},
                                  status=status.HTTP_400_BAD_REQUEST)
+
+
+class TokenLogin(generics.CreateAPIView):
+
+    serializer_class = TokenLoginSerializer
+
+    def post(self, request, *args, **kwargs):
+        serializer = self.serializer_class(data=request.data)
+
+        serializer.is_valid(raise_exception=True)
+        user_id = serializer.validated_data['user_id']
+        token = serializer.validated_data['token']
+
+        try:
+            user = USER_MODEL.objects.get(pk=user_id)
+        except USER_MODEL.DoesNotExist:
+            return response.Response(status=status.HTTP_404_NOT_FOUND)
+
+        if login_token_generator.check_token(user, token):
+            user.last_login = now()
+            user.save()
+
+            return response.Response(
+                {'token': user.get_jwt_token()},
+                status=status.HTTP_201_CREATED
+            )
+
+        return response.Response(status=status.HTTP_404_NOT_FOUND)
 
 
 class UserVerification(generics.CreateAPIView):

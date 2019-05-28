@@ -127,14 +127,16 @@ TEMPLATES = [
                 'django.template.context_processors.static',
                 'django.template.context_processors.tz',
                 'django.contrib.messages.context_processors.messages',
-                'social.apps.django_app.context_processors.backends',
-                'social.apps.django_app.context_processors.login_redirect',
+                'social_django.context_processors.backends',
+                'social_django.context_processors.login_redirect',
                 'tenant_extras.context_processors.conf_settings',
                 'tenant_extras.context_processors.tenant_properties'
             ],
         },
     },
 ]
+
+FORM_RENDERER = 'django.forms.renderers.TemplatesSetting'
 
 MIDDLEWARE_CLASSES = (
     'django.middleware.cache.UpdateCacheMiddleware',
@@ -167,6 +169,9 @@ REST_FRAMEWORK = {
         'rest_framework.authentication.SessionAuthentication',
         'rest_framework.authentication.TokenAuthentication'
     ),
+    'DEFAULT_RENDERER_CLASSES': (
+        'rest_framework.renderers.JSONRenderer',
+    ),
     'DEFAULT_PERMISSION_CLASSES': (
         'bluebottle.utils.permissions.TenantConditionalOpenClose',
     ),
@@ -181,13 +186,8 @@ JWT_AUTH = {
     # After the renewal limit it isn't possible to request a token refresh
     # => time token first created + renewal limit.
     'JWT_TOKEN_RENEWAL_LIMIT': datetime.timedelta(days=90),
+    'JWT_GET_USER_SECRET_KEY': 'bluebottle.members.utils.get_jwt_secret',
 
-    # Override the JWT token handlers, use tenant aware ones.
-    'JWT_ENCODE_HANDLER':
-        'tenant_extras.jwt_utils.jwt_encode_handler',
-
-    'JWT_DECODE_HANDLER':
-        'tenant_extras.jwt_utils.jwt_decode_handler',
 }
 
 # Time between attempts to refresh the jwt token automatically on standard request
@@ -199,11 +199,12 @@ LOCALE_REDIRECT_IGNORE = ('/docs', '/go', '/api', '/payments_docdata',
                           '/payments_mock', '/payments_interswitch',
                           '/payments_vitepay', '/payments_flutterwave',
                           '/payments_lipisha', '/payments_beyonic',
-                          '/media', '/downloads',
+                          '/payments_stripe', '/payouts_stripe',
+                          '/media', '/downloads', '/login-with',
                           '/surveys', '/token', '/jet')
 
 SOCIAL_AUTH_STRATEGY = 'social.strategies.django_strategy.DjangoStrategy'
-SOCIAL_AUTH_STORAGE = 'social.apps.django_app.default.models.DjangoStorage'
+SOCIAL_AUTH_STORAGE = 'social_django.models.DjangoStorage'
 
 
 PASSWORD_HASHERS = (
@@ -223,6 +224,16 @@ AUTHENTICATION_BACKENDS = (
     'django.contrib.auth.backends.ModelBackend',
     'bluebottle.utils.backends.AnonymousAuthenticationBackend'
 )
+
+
+AUTH_PASSWORD_VALIDATORS = [
+    {
+        'NAME': 'django.contrib.auth.password_validation.MinimumLengthValidator',
+        'OPTIONS': {
+            'min_length': 8,
+        }
+    },
+]
 
 SOCIAL_AUTH_PIPELINE = (
     'bluebottle.auth.utils.user_from_request',
@@ -273,18 +284,20 @@ SHARED_APPS = (
     'daterange_filter',
     'adminsortable',
     'django_summernote',
-    'django_singleton_admin'
+    'django_singleton_admin',
+    'django_filters',
+    'multiselectfield',
 )
 
 TENANT_APPS = (
     'polymorphic',
     'modeltranslation',
 
-    'social.apps.django_app.default',
+    'social_django',
     'django.contrib.contenttypes',
     # Allow the Bluebottle common app to override the admin branding
     'bluebottle.common',
-    'token_auth',
+    'bluebottle.token_auth',
 
     'bluebottle.bluebottle_dashboard',
     'jet',
@@ -312,6 +325,7 @@ TENANT_APPS = (
     'bluebottle.widget',
 
     'rest_framework.authtoken',
+    'django_elasticsearch_dsl',
 
     'bluebottle.looker',
 
@@ -321,7 +335,6 @@ TENANT_APPS = (
 
     'bluebottle.tasks',
     'bluebottle.homepage',
-    'bluebottle.recurring_donations',
     'bluebottle.payouts',
     'bluebottle.payouts_dorado',
     'bluebottle.surveys',
@@ -347,6 +360,7 @@ TENANT_APPS = (
     'bluebottle.payments_lipisha',
     'bluebottle.payments_logger',
     'bluebottle.payments_pledge',
+    'bluebottle.payments_stripe',
     'bluebottle.payments_telesom',
     'bluebottle.payments_vitepay',
     'bluebottle.payments_voucher',
@@ -357,6 +371,7 @@ TENANT_APPS = (
     'bluebottle.votes',
     'bluebottle.social',
     'bluebottle.rewards',
+    'bluebottle.scim',
 
     # Custom dashboard
     # 'fluent_dashboard',
@@ -395,25 +410,28 @@ TENANT_APPS = (
     'django_singleton_admin',
     'nested_inline',
     'permissions_widget',
-
+    'django.forms',
 )
 
 
 INSTALLED_APPS = list(SHARED_APPS) + [app for app in TENANT_APPS if app not in SHARED_APPS]
 
-CSRF_COOKIE_SECURE = True
+CSRF_USE_SESSIONS = True
 SESSION_COOKIE_SECURE = True
 
 TENANT_MODEL = "clients.Client"
 TENANT_PROPERTIES = "bluebottle.clients.properties"
 
 SESSION_SERIALIZER = 'django.contrib.sessions.serializers.JSONSerializer'
+SESSION_ENGINE = 'bluebottle.clients.session_backends'
 
 THUMBNAIL_DEBUG = False
 THUMBNAIL_QUALITY = 85
 THUMBNAIL_DUMMY = True
+THUMBNAIL_PRESERVE_FORMAT = True
 
 DATA_UPLOAD_MAX_MEMORY_SIZE = 52428800  # 50MB
+DATA_UPLOAD_MAX_NUMBER_FIELDS = 10240
 
 # A sample logging configuration. The only tangible logging
 # performed by this configuration is to send an email to
@@ -521,7 +539,6 @@ SOCIAL_AUTH_FACEBOOK_SCOPE = ['email', 'user_friends', 'public_profile', 'user_b
 SOCIAL_AUTH_FACEBOOK_EXTRA_DATA = [('birthday', 'birthday')]
 
 # Default Client properties
-RECURRING_DONATIONS_ENABLED = False
 DONATIONS_ENABLED = True
 
 # Analytics Service
@@ -642,6 +659,8 @@ EXPORTDB_EXPORT_CONF = {
                 ('id', 'User ID'),
                 ('remote_id', 'Remote ID'),
                 ('get_full_name', 'Name'),
+                ('first_name', 'First Name'),
+                ('last_name', 'Last Name'),
                 ('email', 'Email'),
                 ('location__name', 'Location'),
                 ('project_count', 'Projects initiated'),
@@ -650,6 +669,12 @@ EXPORTDB_EXPORT_CONF = {
                 ('sourcing', 'Sourcing'),
                 ('date_joined', 'Date joined'),
                 ('updated', 'Last update'),
+                ('address__line1', 'Address Line 1'),
+                ('address__line2', 'Address Line 2'),
+                ('address__city', 'City'),
+                ('state', 'State'),
+                ('address__country', 'Country'),
+                ('address__postal_code', 'Postal Code'),
             ),
             'resource_class': 'bluebottle.exports.resources.UserResource',
             'title': 'Members',
@@ -686,7 +711,15 @@ EXPORTDB_EXPORT_CONF = {
                 ('campaign_started', 'Campaign Started'),
                 ('campaign_ended', 'Campaign Ended'),
                 ('campaign_funded', 'Campaign Funded'),
-                ('organization__name', 'organization'),
+                ('organization__name', 'Organization'),
+                ('account_holder_name', 'Account Holder Name'),
+                ('account_holder_address', 'Account Holder Address'),
+                ('account_holder_postal_code', 'Account Holder Postal Code'),
+                ('account_holder_city', 'Account Holder City'),
+                ('account_holder_country', 'Account Holder Country'),
+                ('account_number', 'Account Number'),
+                ('account_details', 'Account Details'),
+                ('account_bank_country', 'Account Bank Country'),
             ),
             'resource_class': 'bluebottle.exports.resources.ProjectResource',
             'title': 'Projects',
@@ -722,6 +755,7 @@ EXPORTDB_EXPORT_CONF = {
                 ('order__user__remote_id', 'Remote ID'),
                 ('project__id', 'Project ID'),
                 ('fundraiser__id', 'Fundraiser ID'),
+                ('order_id', 'Order ID'),
                 ('user__get_full_name', 'Name'),
                 ('order__user__email', 'Email'),
                 ('order__user__location', 'Location'),
@@ -848,6 +882,11 @@ TASKS = {
 
 ENABLE_REFUNDS = False
 
+
+def static_url(url):
+    return os.path.join(STATIC_URL, url)
+
+
 SUMMERNOTE_CONFIG = {
     # Using SummernoteWidget - iframe mode
     'toolbar': [
@@ -862,12 +901,35 @@ SUMMERNOTE_CONFIG = {
     'attachment_upload_to': 'project_images/',
     'summernote': {
         'disableResizeImage': True
-    }
+    },
+    'default_css': (
+        static_url('rest_framework/css/bootstrap.min.css'),
+        static_url('django_summernote/summernote.css'),
+        static_url('django_summernote/django_summernote.css'),
+    ),
+    'default_js': (
+        static_url('admin/js/vendor/jquery/jquery.min.js'),
+        static_url('rest_framework/js/bootstrap.min.js'),
+        static_url('django_summernote/jquery.ui.widget.js'),
+        static_url('django_summernote/jquery.iframe-transport.js'),
+        static_url('django_summernote/jquery.fileupload.js'),
+        static_url('django_summernote/summernote.min.js'),
+        static_url('django_summernote/ResizeSensor.js'),
+    ),
+
 }
 
 HOMEPAGE = {}
+ELASTICSEARCH_DSL = {
+    'default': {
+        'hosts': 'localhost:9200'
+    },
+}
 
 LOGOUT_REDIRECT_URL = 'admin:index'
 LOGIN_REDIRECT_URL = 'admin:index'
 
 TINYMCE_INCLUDE_JQUERY = False
+
+LOOKER_SESSION_LENGTH = 60 * 60
+TOKEN_LOGIN_TIMEOUT = 30

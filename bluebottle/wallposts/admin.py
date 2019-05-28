@@ -19,6 +19,17 @@ from .models import (Wallpost, MediaWallpost, TextWallpost,
                      MediaWallpostPhoto, Reaction)
 
 
+class ReactionInline(admin.TabularInline):
+    model = Reaction
+    readonly_fields = ('reaction_link', 'author', 'ip_address', 'text', 'created', 'deleted')
+    fields = readonly_fields
+    extra = 0
+
+    def reaction_link(self, obj):
+        url = reverse('admin:wallposts_reaction_change', args=(obj.id, ))
+        return format_html("<a href='{}'>Reaction #{}</a>", url, obj.id)
+
+
 class MediaWallpostPhotoInline(admin.TabularInline):
     model = MediaWallpostPhoto
     extra = 0
@@ -44,10 +55,10 @@ class MediaWallpostPhotoInline(admin.TabularInline):
 
 class MediaWallpostAdmin(PolymorphicChildModelAdmin):
     base_model = Wallpost
-    readonly_fields = ('ip_address', 'deleted', 'view_online', 'gallery', 'donation',
+    readonly_fields = ('ip_address', 'created', 'deleted', 'view_online', 'gallery', 'donation',
                        'share_with_facebook', 'share_with_twitter',
                        'share_with_linkedin', 'email_followers')
-    fields = readonly_fields + ('text', 'author', 'editor')
+    fields = readonly_fields + ('text', 'author', 'editor', 'pinned')
     raw_id_fields = ('author', 'editor')
     list_display = ('created', 'view_online', 'get_text', 'thumbnail', 'author', 'deleted')
     search_fields = ('text', 'author__first_name', 'author__last_name')
@@ -56,7 +67,7 @@ class MediaWallpostAdmin(PolymorphicChildModelAdmin):
     extra_fields = ('gallery',)
 
     ordering = ('-created',)
-    inlines = (MediaWallpostPhotoInline,)
+    inlines = (MediaWallpostPhotoInline, ReactionInline)
 
     formfield_overrides = {
         models.URLField: {'widget': SecureAdminURLFieldWidget()},
@@ -133,14 +144,16 @@ class MediaWallpostAdmin(PolymorphicChildModelAdmin):
 
 class TextWallpostAdmin(PolymorphicChildModelAdmin):
     base_model = Wallpost
-    readonly_fields = ('ip_address', 'deleted', 'posted_on', 'donation_link')
+    readonly_fields = ('ip_address', 'created', 'deleted', 'posted_on', 'donation_link')
     search_fields = ('text', 'author__first_name', 'author__last_name')
     list_display = ('created', 'author', 'content_type', 'text', 'deleted')
     raw_id_fields = ('author', 'editor', 'donation')
-    fields = readonly_fields + ('text', 'author', 'editor')
+    fields = readonly_fields + ('text', 'author', 'editor', 'pinned')
     exclude = ('object_id', 'content_type')
 
     ordering = ('-created',)
+
+    inlines = (ReactionInline, )
 
     def posted_on(self, obj):
         type = obj.content_type.name
@@ -179,14 +192,16 @@ class TextWallpostAdmin(PolymorphicChildModelAdmin):
 
 class SystemWallpostAdmin(PolymorphicChildModelAdmin):
     base_model = SystemWallpost
-    readonly_fields = ('ip_address', 'content_type', 'related_type',
+    readonly_fields = ('ip_address', 'created', 'content_type', 'related_type',
                        'donation_link', 'project_link',
                        'related_id', 'object_id')
-    fields = readonly_fields + ('author', 'donation', 'text')
+    fields = readonly_fields + ('author', 'donation', 'text', 'pinned')
     list_display = ('created', 'author', 'content_type', 'related_type', 'text', 'deleted')
     raw_id_fields = ('author', 'editor', 'donation')
     ordering = ('-created',)
     exclude = ('object_id', 'content_type')
+
+    inlines = (ReactionInline, )
 
     def project_link(self, obj):
         if obj.donation:
@@ -214,7 +229,7 @@ class WallpostParentAdmin(PolymorphicParentModelAdmin):
     """ The parent model admin """
     base_model = Wallpost
     list_display = ('created', 'author', 'content_type', 'text', 'type', 'deleted')
-    fields = ('title', 'text', 'author', 'ip_address')
+    fields = ('title', 'text', 'author', 'ip_address', 'pinned')
     list_filter = ('created', ('content_type', admin.RelatedOnlyFieldListFilter),)
     ordering = ('-created',)
     search_fields = (
@@ -250,7 +265,7 @@ class WallpostParentAdmin(PolymorphicParentModelAdmin):
         except MediaWallpost.DoesNotExist:
             pass
         if len(text) > 40:
-            return format_html(text[:38] + '&hellip;')
+            return format_html('{}&hellip;', text[:38])
         return text
 
 

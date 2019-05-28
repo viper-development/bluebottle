@@ -10,15 +10,17 @@ from django.utils.translation import ugettext, ugettext_lazy as _
 from django_extensions.db.fields import ModificationDateTimeField, CreationDateTimeField
 from djchoices.choices import DjangoChoices, ChoiceItem
 
-from parler.models import TranslatableModel, TranslatedFields
+from parler.models import TranslatedFields
 
 from bluebottle.utils.models import MailLog
 from tenant_extras.utils import TenantLanguage
 
 from bluebottle.clients import properties
 from bluebottle.clients.utils import tenant_url
+from bluebottle.geo.models import Place
 from bluebottle.utils.fields import PrivateFileField
 from bluebottle.utils.managers import UpdateSignalsQuerySet
+from bluebottle.utils.models import SortableTranslatableModel
 from bluebottle.utils.utils import PreviousStatusMixin
 from bluebottle.utils.email_backend import send_mail
 from bluebottle.wallposts.models import Wallpost
@@ -47,6 +49,7 @@ class Task(models.Model, PreviousStatusMixin):
                                 max_length=200,
                                 null=True,
                                 blank=True)
+
     people_needed = models.PositiveIntegerField(_('people needed'), default=1)
     project = models.ForeignKey('projects.Project')
     # See Django docs on issues with related name and an (abstract) base class:
@@ -74,6 +77,8 @@ class Task(models.Model, PreviousStatusMixin):
     deadline = models.DateTimeField(_('deadline'), help_text=_('Deadline or event date'))
     deadline_to_apply = models.DateTimeField(_('deadline to apply'), help_text=_('Deadline to apply'))
 
+    places = GenericRelation(Place)
+
     objects = UpdateSignalsQuerySet.as_manager()
 
     # required resources
@@ -99,6 +104,13 @@ class Task(models.Model, PreviousStatusMixin):
     @property
     def parent(self):
         return self.project
+
+    @property
+    def place(self):
+        try:
+            return self.places.get()
+        except Place.DoesNotExist:
+            return None
 
     @property
     def expertise_based(self):
@@ -286,7 +298,7 @@ class Task(models.Model, PreviousStatusMixin):
         )
 
 
-class Skill(TranslatableModel):
+class Skill(SortableTranslatableModel):
     expertise = models.BooleanField(_('expertise based'),
                                     help_text=_('Is this skill expertise based, or could anyone do it?'),
                                     default=True)
@@ -301,7 +313,7 @@ class Skill(TranslatableModel):
         return self.name
 
     class Meta:
-        ordering = ('id',)
+        ordering = ['translations__name']
         permissions = (
             ('api_read_skill', 'Can view skills through the API'),
         )

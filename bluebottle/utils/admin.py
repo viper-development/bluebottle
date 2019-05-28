@@ -1,25 +1,108 @@
 import csv
 from moneyed import Money
+import urllib
+
+from adminfilters.multiselect import UnionFieldListFilter
+from django_singleton_admin.admin import SingletonAdmin
 
 from django.conf import settings
 from django.contrib import admin
+from django.contrib.admin.models import CHANGE, LogEntry
 from django.contrib.admin.views.main import ChangeList
+from django.contrib.contenttypes.models import ContentType
+from django.core.urlresolvers import reverse
 from django.db.models.aggregates import Sum
-
-from django_singleton_admin.admin import SingletonAdmin
-
-from bluebottle.members.models import Member, CustomMemberFieldSettings, CustomMemberField
-from bluebottle.projects.models import CustomProjectFieldSettings, Project, CustomProjectField
-from bluebottle.tasks.models import TaskMember
-from .models import Language
 from django.db.models.fields.files import FieldFile
 from django.db.models.query import QuerySet
 from django.http import HttpResponse
+from django.urls.exceptions import NoReverseMatch
+from django.utils.html import format_html
 from django.utils.translation import ugettext_lazy as _
 
-from bluebottle.clients import properties
 from bluebottle.bb_projects.models import ProjectPhase
+from bluebottle.clients import properties
+from bluebottle.members.models import Member, CustomMemberFieldSettings, CustomMemberField
+from bluebottle.projects.models import CustomProjectFieldSettings, Project, CustomProjectField
+from bluebottle.tasks.models import TaskMember
 from bluebottle.utils.exchange_rates import convert
+
+from .models import Language
+
+
+def link_to(value, url_name, view_args=(), view_kwargs={}, query={},
+            short_description=None, truncate=None):
+    """
+    Return admin field with link to named view with view_args/view_kwargs
+    or view_[kw]args(obj) methods and HTTP GET parameters.
+
+    Parameters:
+
+      * value: function(object) or string for object proeprty name
+      * url_name: name used to reverse() view
+      * view_args: () or function(object) -> () returing view params
+      * view_kwargs: {} or function(object) -> {} returing view params
+      * query: {} or function(object) -> {} returning HTTP GET params
+      * short_description: string with description, defaults to
+        'value'/property name
+    """
+
+    def prop(self, obj):
+        # Replace view_args methods by result of function calls
+        if callable(view_args):
+            args = view_args(obj)
+        else:
+            args = view_args
+
+        if callable(view_kwargs):
+            kwargs = view_kwargs(obj)
+        else:
+            kwargs = view_kwargs
+
+        # Construct URL
+        try:
+            url = reverse(url_name, args=args, kwargs=kwargs)
+        except NoReverseMatch:
+            url = ''
+
+        if callable(query):
+            params = query(obj)
+        else:
+            params = query
+
+        # Append query parameters
+        if params:
+            url += '?' + urllib.urlencode(params)
+
+        # Get value
+        if callable(value):
+            # Call value getter
+            new_value = value(obj)
+        else:
+            # String, assume object property
+            assert isinstance(value, basestring)
+            new_value = getattr(obj, value)
+
+        if truncate:
+            new_value = unicode(new_value)
+            new_value = (new_value[:truncate] + '...') if len(
+                new_value) > truncate else new_value
+
+        if url and new_value:
+            return format_html(
+                u'<a href="{}">{}</a>',
+                url, new_value
+            )
+        if url:
+            return None
+        return new_value
+
+    if not short_description:
+        # No short_description set, use property name
+        assert isinstance(value, basestring)
+        short_description = value
+    prop.short_description = short_description
+
+    return prop
 
 
 class LanguageAdmin(admin.ModelAdmin):
@@ -67,6 +150,13 @@ def mark_as_plan_new(modeladmin, request, queryset):
 mark_as_plan_new.short_description = _("Mark selected projects as status Plan New")
 
 
+def escape_csv_formulas(item):
+    if item and item[0] in ['=', '+', '-', '@']:
+        return "'" + item
+    else:
+        return item
+
+
 def export_as_csv_action(description="Export as CSV", fields=None, exclude=None, header=True,
                          manyToManySep=';'):
     """ This function returns an export csv action. """
@@ -106,7 +196,7 @@ def export_as_csv_action(description="Export as CSV", fields=None, exclude=None,
             if queryset.model is Member or queryset.model is TaskMember:
                 for field in CustomMemberFieldSettings.objects.all():
                     labels.append(field.name)
-            writer.writerow(row)
+            writer.writerow([escape_csv_formulas(item) for item in row])
 
         for obj in queryset:
             row = [prep_field(request, obj, field, manyToManySep) for field in field_names]
@@ -132,7 +222,7 @@ def export_as_csv_action(description="Export as CSV", fields=None, exclude=None,
                     except CustomMemberField.DoesNotExist:
                         value = ''
                     row.append(value.encode('utf-8'))
-            writer.writerow(row)
+            writer.writerow([escape_csv_formulas(item) for item in row])
         return response
 
     export_as_csv.short_description = description
@@ -142,7 +232,7 @@ def export_as_csv_action(description="Export as CSV", fields=None, exclude=None,
 
 class TotalAmountAdminChangeList(ChangeList):
     def get_results(self, *args, **kwargs):
-        self.model_admin.change_list_template = 'utils/admin/change_list.html'
+        self.model_admin.change_list_template = 'utils/admin/total_amount_change_list.html'
         super(TotalAmountAdminChangeList, self).get_results(*args, **kwargs)
 
         total_column = self.model_admin.total_column or 'amount'
@@ -178,3 +268,23 @@ class BasePlatformSettingsAdmin(SingletonAdmin):
 
     def has_add_permission(self, request, obj=None):
         return False
+
+
+class TranslatedUnionFieldListFilter(UnionFieldListFilter):
+
+    def __init__(self, field, request, params, model, model_admin, field_path):
+        super(TranslatedUnionFieldListFilter, self).__init__(
+            field, request, params, model, model_admin, field_path)
+        # Remove duplicates and order by title
+        self.lookup_choices = sorted(list(set(self.lookup_choices)), key=lambda tup: tup[1])
+
+
+def log_action(obj, user, change_message='Changed', action_flag=CHANGE):
+    LogEntry.objects.log_action(
+        user_id=user.id,
+        content_type_id=ContentType.objects.get_for_model(obj).pk,
+        object_id=obj.pk,
+        object_repr=unicode(obj),
+        action_flag=action_flag,
+        change_message=change_message
+    )

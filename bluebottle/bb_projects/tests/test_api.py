@@ -1,7 +1,13 @@
+from datetime import datetime
 import json
 from decimal import Decimal
 
 from django.core.urlresolvers import reverse
+from django.test import tag
+from django.test.utils import override_settings
+from django.utils.timezone import get_current_timezone
+
+from django_elasticsearch_dsl.test import ESTestCase
 
 from rest_framework import status
 
@@ -74,7 +80,12 @@ class TestProjectPhaseList(ProjectEndpointTestCase):
             self.assertIn('viewable', item)
 
 
-class TestProjectList(ProjectEndpointTestCase):
+@override_settings(
+    ELASTICSEARCH_DSL_AUTOSYNC=True,
+    ELASTICSEARCH_DSL_AUTO_REFRESH=True
+)
+@tag('elasticsearch')
+class TestProjectList(ESTestCase, ProjectEndpointTestCase):
     """
     Test case for the ``ProjectList`` API view.
 
@@ -146,32 +157,6 @@ class TestProjectDetail(ProjectEndpointTestCase):
         self.assertIn('status', data)
 
 
-class TestProjectPreviewList(ProjectEndpointTestCase):
-    """
-    Test case for the ``ProjectPreviewList`` API view.
-
-    Endpoint: /api/projects/previews
-    """
-    def test_api_project_preview_list_endpoint(self):
-        """
-        Test the API endpoint for Project preview list.
-        """
-        response = self.client.get(reverse('project_preview_list'))
-
-        self.assertEqual(response.status_code, 200)
-
-        data = json.loads(response.content)
-
-        self.assertEqual(data['count'], 1)
-
-        for item in data['results']:
-            self.assertIn('id', item)
-            self.assertIn('title', item)
-            self.assertIn('image', item)
-            self.assertIn('status', item)
-            self.assertIn('country', item)
-
-
 class TestProjectPreviewDetail(ProjectEndpointTestCase):
     """
     Test case for the ``ProjectPreviewDetail`` API view.
@@ -203,6 +188,13 @@ class TestProjectThemeList(ProjectEndpointTestCase):
 
     Endpoint: /api/projects/themes
     """
+    def setUp(self):
+        super(TestProjectThemeList, self).setUp()
+        for theme in ProjectTheme.objects.order_by('pk'):
+            for translation in theme.translations.all():
+                translation.name = '{}:{}'.format(translation.language_code, translation.name)
+                translation.save()
+
     def test_api_project_theme_list_endpoint(self):
         """
         Test the API endpoint for Project theme list.
@@ -219,6 +211,59 @@ class TestProjectThemeList(ProjectEndpointTestCase):
             self.assertIn('id', item)
             self.assertIn('name', item)
             self.assertIn('description', item)
+
+    def test_api_project_theme_list_translations_en(self):
+        """
+        Test the API endpoint for Project theme list.
+        """
+        response = self.client.get(
+            reverse('project_theme_list'),
+            headers={'X-Application-Language': 'en'}
+        )
+
+        self.assertEqual(response.status_code, 200)
+
+        data = json.loads(response.content)
+
+        self.assertEqual(len(data), 17)
+
+        for item in data:
+            self.assertTrue(item['name'].startswith('en'))
+
+    def test_api_project_theme_list_translations_nl(self):
+        """
+        Test the API endpoint for Project theme list.
+        """
+        response = self.client.get(
+            reverse('project_theme_list'),
+            **{'HTTP_X_APPLICATION_LANGUAGE': 'nl'}
+        )
+
+        self.assertEqual(response.status_code, 200)
+
+        data = json.loads(response.content)
+
+        self.assertEqual(len(data), 17)
+
+        for item in data:
+            self.assertTrue(item['name'].startswith('nl'))
+
+    def test_api_project_theme_list_translations_fallback(self):
+        """
+        Test the API endpoint for Project theme list.
+        """
+        english_only_theme = ProjectTheme.objects.all()[0]
+        english_only_theme.delete_translation('nl')
+        response = self.client.get(
+            reverse('project_theme_list'),
+            **{'HTTP_X_APPLICATION_LANGUAGE': 'nl'}
+        )
+
+        self.assertEqual(response.status_code, 200)
+
+        data = json.loads(response.content)
+
+        self.assertEqual(len(data), 17)
 
     def test_api_project_theme_list_endpoint_disabled(self):
         """
@@ -477,33 +522,47 @@ class TestManageProjectDetail(ProjectEndpointTestCase):
         self.assertTrue('permission' in response.content)
 
 
-class TestTinyProjectList(ProjectEndpointTestCase):
+@override_settings(
+    ELASTICSEARCH_DSL_AUTOSYNC=True,
+    ELASTICSEARCH_DSL_AUTO_REFRESH=True
+)
+@tag('elasticsearch')
+class TestTinyProjectList(ESTestCase, BluebottleTestCase):
     """
     Test case for the ``TinyProjectList`` API view.
     """
-
     def setUp(self):
+        super(TestTinyProjectList, self).setUp()
+
         self.init_projects()
         campaign = ProjectPhase.objects.get(slug='campaign')
+        new = ProjectPhase.objects.get(slug='plan-new')
         incomplete = ProjectPhase.objects.get(slug='done-incomplete')
         complete = ProjectPhase.objects.get(slug='done-complete')
+
         self.project1 = ProjectFactory(status=complete)
-        self.project1.created = '2017-03-18 00:00:00.000000+00:00'
+        self.project1.created = datetime(2017, 03, 18, tzinfo=get_current_timezone())
         self.project1.save()
         self.project2 = ProjectFactory(status=campaign)
-        self.project2.created = '2017-03-12 00:00:00.000000+00:00'
+        self.project2.created = datetime(2017, 03, 12, tzinfo=get_current_timezone())
         self.project2.save()
         self.project3 = ProjectFactory(status=incomplete)
-        self.project3.created = '2017-03-01 00:00:00.000000+00:00'
+        self.project3.created = datetime(2017, 03, 01, tzinfo=get_current_timezone())
         self.project3.save()
         self.project4 = ProjectFactory(status=campaign)
-        self.project4.created = '2017-03-20 00:00:00.000000+00:00'
+        self.project4.created = datetime(2017, 03, 20, tzinfo=get_current_timezone())
         self.project4.save()
+        self.project5 = ProjectFactory(status=new)
+        self.project5.created = datetime(2017, 03, 20, tzinfo=get_current_timezone())
+        self.project5.save()
 
     def test_tiny_project_list(self):
         response = self.client.get(reverse('project_tiny_preview_list'))
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         data = json.loads(response.content)
+
+        self.assertEqual(len(data), 4)
+
         self.assertEqual(int(data['results'][0]['id']), self.project3.id)
         self.assertEqual(int(data['results'][1]['id']), self.project2.id)
         self.assertEqual(int(data['results'][2]['id']), self.project1.id)

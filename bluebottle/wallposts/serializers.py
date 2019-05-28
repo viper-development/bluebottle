@@ -74,7 +74,7 @@ class WallpostSerializerBase(serializers.ModelSerializer):
 
     class Meta:
         fields = ('id', 'type', 'author', 'created', 'reactions',
-                  'parent_type', 'parent_id', 'donation',
+                  'parent_type', 'parent_id', 'pinned', 'donation',
                   'email_followers', 'share_with_facebook',
                   'share_with_twitter', 'share_with_linkedin')
 
@@ -120,6 +120,15 @@ class TextWallpostSerializer(WallpostSerializerBase):
     class Meta:
         model = TextWallpost
         fields = WallpostSerializerBase.Meta.fields + ('text',)
+
+    def validate(self, data):
+        if (
+            'donation' in data and
+            TextWallpost.objects.filter(donation=data['donation'])
+        ):
+            raise ValidationError("Wallpost for donation already exists.")
+
+        return super(WallpostSerializerBase, self).validate(data)
 
 
 class WallpostRelatedField(serializers.RelatedField):

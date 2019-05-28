@@ -199,6 +199,61 @@ class WallpostPermissionsTest(UserTestsMixin, BluebottleTestCase):
         self.assertEqual(response.data['count'], 3)
 
 
+class WallpostDeletePermissionTest(BluebottleTestCase):
+    def setUp(self):
+        super(WallpostDeletePermissionTest, self).setUp()
+
+        self.init_projects()
+
+        self.owner = BlueBottleUserFactory.create()
+        self.owner_token = "JWT {0}".format(self.owner.get_jwt_token())
+
+        self.other_user = BlueBottleUserFactory.create()
+        self.other_token = "JWT {0}".format(
+            self.other_user.get_jwt_token())
+
+        self.project = ProjectFactory.create(owner=self.owner)
+
+        self.wallpost = MediaWallpostFactory.create(
+            content_object=self.project,
+            author=self.other_user
+        )
+
+        self.wallpost_detail_url = reverse('wallpost_detail', args=(self.wallpost.id, ))
+
+    def test_delete_own_wallpost(self):
+        """
+        Tests that project initiator can post and view task wallposts
+        """
+        response = self.client.delete(
+            self.wallpost_detail_url,
+            token=self.other_token
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_204_NO_CONTENT)
+
+    def test_delete_other_wallpost(self):
+        """
+        Tests that project initiator can post and view task wallposts
+        """
+        response = self.client.delete(
+            self.wallpost_detail_url,
+            token=self.owner_token
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+
+    def test_delete_wallpost_no_authorization(self):
+        """
+        Tests that project initiator can post and view task wallposts
+        """
+        response = self.client.delete(
+            self.wallpost_detail_url
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
+
+
 class WallpostReactionApiIntegrationTest(BluebottleTestCase):
     """
     Integration tests for the Project Media Wallpost API.
@@ -457,6 +512,40 @@ class WallpostMailTests(UserTestsMixin, BluebottleTestCase):
         # +-- Wallpost by B (+)
 
         TextWallpostFactory.create(content_object=self.project_1, author=self.user_b)
+
+        # Mailbox should contain an email to project owner.
+        self.assertEqual(len(mail.outbox), 1)
+        m = mail.outbox[0]
+
+        self.assertEqual(m.to, [self.user_a.email])
+        self.assertEqual(m.activated_language, self.user_a.primary_language)
+
+    def test_new_wallpost_with_donation_by_b_on_project_by_a(self):
+        """
+        Project by A + Wallpost by B => Mail to (project owner) A
+        """
+        # Object by A
+        # |
+        # +-- Wallpost by B (+)
+
+        TextWallpostFactory.create(
+            content_object=self.project_1,
+            donation=DonationFactory.create(),
+            author=self.user_b
+        )
+
+        # Mailbox should NOT contain an email to project owner.
+        self.assertEqual(len(mail.outbox), 0)
+
+    def test_new_media_wallpost_by_b_on_project_by_a(self):
+        """
+        Project by A + Wallpost by B => Mail to (project owner) A
+        """
+        # Object by A
+        # |
+        # +-- Wallpost by B (+)
+
+        MediaWallpostFactory.create(content_object=self.project_1, author=self.user_b)
 
         # Mailbox should contain an email to project owner.
         self.assertEqual(len(mail.outbox), 1)
@@ -757,7 +846,6 @@ class TestDonationWallpost(BluebottleTestCase):
     Test that a wallpost is created after making a donation and that
     the system wallposts is removed if we post a comment.
     """
-
     def setUp(self):
         super(TestDonationWallpost, self).setUp()
 
@@ -769,14 +857,23 @@ class TestDonationWallpost(BluebottleTestCase):
         self.wallpost_url = reverse('wallpost_list')
         self.text_wallpost_url = reverse('text_wallpost_list')
 
-    def test_donation_wallposts(self):
-        # Create a donation and set it to settled to trigger wallpost
         order = OrderFactory.create(user=self.user)
         donation = DonationFactory.create(project=self.some_project, order=order, fundraiser=None)
         order.locked()
         order.success()
         order.save()
 
+        self.data = {
+            "title": "",
+            "text": "What a nice project!",
+            "parent_id": self.some_project.slug,
+            "parent_type": "project",
+            "donation": donation.id,
+            "email_followers": False
+        }
+
+    def test_donation_wallposts(self):
+        # Create a donation and set it to settled to trigger wallpost
         # There should be one system wallpost now
         response = self.client.get(self.wallpost_url,
                                    {'parent_id': self.some_project.slug, 'parent_type': 'project'},
@@ -786,14 +883,7 @@ class TestDonationWallpost(BluebottleTestCase):
         self.assertEqual(response.data['results'][0]['type'], 'system')
 
         # Now create a text wallpost for this donation (user enters text in thank you modal)
-        data = {
-            "title": "",
-            "text": "What a nice project!",
-            "parent_id": self.some_project.slug,
-            "parent_type": "project",
-            "donation": donation.id
-        }
-        response = self.client.post(self.text_wallpost_url, data, token=self.user_token)
+        response = self.client.post(self.text_wallpost_url, self.data, token=self.user_token)
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
 
         # The project should still have one wallpost, only the message last added
@@ -805,3 +895,69 @@ class TestDonationWallpost(BluebottleTestCase):
         self.assertEqual(len(response.data['results']), 1)
         self.assertEqual(response.data['results'][0]['type'], 'text')
         self.assertEqual(response.data['results'][0]['text'], '<p>What a nice project!</p>')
+
+    def test_donation_wallposts_other_user(self):
+        other_user = BlueBottleUserFactory.create()
+        other_user_token = "JWT {0}".format(other_user.get_jwt_token())
+        response = self.client.post(self.text_wallpost_url, self.data, token=other_user_token)
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+
+    def test_donation_wallposts_anonymous(self):
+        response = self.client.post(self.text_wallpost_url, self.data)
+        self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
+
+    def test_donation_wallposts_twice(self):
+        self.client.post(self.text_wallpost_url, self.data, token=self.user_token)
+        response = self.client.post(self.text_wallpost_url, self.data, token=self.user_token)
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+
+
+class TestPinnedWallpost(BluebottleTestCase):
+    """
+    Test that initiator wallposts get pinned and unpinned correctly.
+    """
+
+    def setUp(self):
+        super(TestPinnedWallpost, self).setUp()
+
+        self.init_projects()
+        self.initiator = BlueBottleUserFactory.create()
+        self.initiator_token = "JWT {0}".format(self.initiator.get_jwt_token())
+
+        self.user = BlueBottleUserFactory.create()
+        self.user_token = "JWT {0}".format(self.user.get_jwt_token())
+
+        self.project = ProjectFactory.create(owner=self.initiator)
+
+        self.wallpost_url = reverse('wallpost_list')
+        self.text_wallpost_url = reverse('text_wallpost_list')
+
+    def test_pinned_wallposts(self):
+
+        wallpost = MediaWallpostFactory.create(author=self.initiator, content_object=self.project)
+        wallpost.refresh_from_db()
+        self.assertEqual(wallpost.pinned, True)
+        MediaWallpostFactory.create(author=self.user, content_object=self.project)
+        MediaWallpostFactory.create(author=self.initiator, content_object=self.project)
+        MediaWallpostFactory.create_batch(3, author=self.user, content_object=self.project)
+
+        response = self.client.get(self.wallpost_url,
+                                   {'parent_id': self.project.slug, 'parent_type': 'project'},
+                                   token=self.user_token)
+
+        # There should be 6 wallposts
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(len(response.data['results']), 6)
+
+        # First post should by latest by the initiator
+        self.assertEqual(response.data['results'][0]['author']['id'], self.initiator.id)
+        self.assertEqual(response.data['results'][0]['pinned'], True)
+
+        # Second item shoudl be by user and unpinned
+        self.assertEqual(response.data['results'][1]['author']['id'], self.user.id)
+        self.assertEqual(response.data['results'][1]['pinned'], False)
+
+        # The sixth wallposts should be by initiator but unpinned
+        self.assertEqual(response.data['results'][5]['author']['id'], self.initiator.id)
+        self.assertEqual(response.data['results'][5]['pinned'], False)

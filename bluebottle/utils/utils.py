@@ -1,5 +1,8 @@
+from collections import namedtuple
+
 import bleach
 from importlib import import_module
+import json
 import logging
 import pygeoip
 import socket
@@ -11,6 +14,7 @@ from django.contrib.auth.models import Permission, Group
 from django.core.exceptions import ObjectDoesNotExist
 from django.core.signing import TimestampSigner
 from django.core.urlresolvers import reverse
+from django.db import connection
 
 from django_fsm import TransitionNotAllowed
 from django_tools.middlewares import ThreadLocal
@@ -88,9 +92,15 @@ class FSMTransition(object):
             instance_method = getattr(self, transition_method.__name__)
             instance_method()
         except UnboundLocalError:
+            tenant = connection.tenant.schema_name
             raise TransitionNotAllowed(
-                "Can't switch from state '{0}' to state '{1}' for {2}".format(
-                    self.status, new_status, self.__class__.__name__))
+                "Can't switch from state '{0}' to state '{1}' for {2} {3} {4}".format(
+                    self.status,
+                    new_status,
+                    self.__class__.__name__,
+                    self.id,
+                    tenant
+                ))
 
         if save:
             self.save()
@@ -114,7 +124,7 @@ def get_client_ip(request=None):
         x_forwarded_for = None
 
     if x_forwarded_for:
-        ipa = x_forwarded_for.split(',')[0]
+        ipa = x_forwarded_for.split(',')[-1]
     else:
         try:
             ipa = request.META.get('REMOTE_ADDR')
@@ -275,3 +285,15 @@ def reverse_signed(name, args):
     url = reverse(name, args=args)
     signature = signer.sign(url)
     return '{}?{}'.format(url, urllib.urlencode({'signature': signature}))
+
+
+def get_language_from_request(request):
+    return request.META.get('HTTP_X_APPLICATION_LANGUAGE', None)
+
+
+def _json_object_hook(d):
+    return namedtuple('X', d.keys())(*d.values())
+
+
+def json2obj(data):
+    return json.loads(data, object_hook=_json_object_hook)

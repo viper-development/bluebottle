@@ -7,10 +7,10 @@ from django.utils.translation import ugettext_lazy as _
 
 from bluebottle.donations.models import Donation
 from bluebottle.orders.models import Order
-from bluebottle.payouts.admin_utils import link_to
 from bluebottle.rewards.models import Reward
 from bluebottle.utils.admin import (
-    export_as_csv_action, TotalAmountAdminChangeList)
+    link_to, export_as_csv_action, TotalAmountAdminChangeList
+)
 from bluebottle.utils.utils import StatusDefinition
 
 
@@ -111,7 +111,7 @@ class DonationAdmin(admin.ModelAdmin):
     readonly_fields = ('order_link', 'order_payment_links', 'created', 'updated', 'completed',
                        'status', 'user_link', 'project_link',
                        'fundraiser_link')
-    fields = readonly_fields + ('amount', 'project', 'fundraiser', 'reward', 'anonymous', 'name')
+    fields = readonly_fields + ('amount', 'payout_amount', 'project', 'fundraiser', 'reward', 'anonymous', 'name')
     search_fields = (
         'order__user__first_name', 'order__user__last_name',
         'order__user__email', 'project__title', 'name',
@@ -132,6 +132,7 @@ class DonationAdmin(admin.ModelAdmin):
         ('name', 'name on donation'),
         ('fundraiser', 'fundraiser'),
         ('amount', 'amount'),
+        ('payout_amount', 'payout_amount'),
         ('created', 'created'),
         ('updated', 'updated'),
         ('completed', 'completed'),
@@ -184,7 +185,9 @@ class DonationAdmin(admin.ModelAdmin):
         list = []
         for op in object.order_payments.all():
             url = reverse('admin:payments_orderpayment_change', args=[op.id])
-            list.append("<a href='{}'>{}</a>".format(url, op.id))
+            list.append(
+                format_html("<a href='{}'>{}</a>", url, op.id)
+            )
         return format_html(", ".join(list))
     order_payment_links.short_description = _('Order payment')
 

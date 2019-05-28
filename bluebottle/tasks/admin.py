@@ -1,6 +1,6 @@
 from datetime import timedelta
 
-from adminfilters.multiselect import UnionFieldListFilter
+from django.db.models import Q
 from django.contrib import admin
 from django.core.urlresolvers import reverse
 from django.utils.html import format_html
@@ -8,8 +8,10 @@ from django.utils.timezone import now
 from django.utils.translation import ugettext_lazy as _
 
 from parler.admin import TranslatableAdmin
+
+from bluebottle.geo.admin import PlaceInline
 from bluebottle.tasks.models import TaskMember, TaskFile, Task, Skill, TaskStatusLog
-from bluebottle.utils.admin import export_as_csv_action
+from bluebottle.utils.admin import export_as_csv_action, TranslatedUnionFieldListFilter
 from bluebottle.utils.utils import reverse_signed
 
 
@@ -155,10 +157,10 @@ class OnlineOnLocationFilter(admin.SimpleListFilter):
         value = self.value()
 
         if value == 'online':
-            queryset = queryset.filter(location__isnull=True)
+            queryset = queryset.filter(Q(location__isnull=True) | Q(location=''))
 
         if value == 'on_location':
-            queryset = queryset.filter(location__isnull=False)
+            queryset = queryset.exclude(Q(location__isnull=True) | Q(location=''))
 
         return queryset
 
@@ -199,9 +201,9 @@ class TaskStatusLogInline(admin.TabularInline):
 
 
 class TaskAdmin(admin.ModelAdmin):
-    date_hierarchy = 'created'
+    date_hierarchy = 'deadline'
 
-    inlines = (TaskMemberAdminInline, TaskFileAdminInline, TaskStatusLogInline)
+    inlines = (TaskMemberAdminInline, TaskFileAdminInline, TaskStatusLogInline, PlaceInline)
     save_as = True
 
     raw_id_fields = ('author', 'project')
@@ -210,7 +212,7 @@ class TaskAdmin(admin.ModelAdmin):
         'type',
         ExpertiseBasedFilter,
         OnlineOnLocationFilter,
-        ('skill', UnionFieldListFilter),
+        ('skill', TranslatedUnionFieldListFilter),
         DeadlineFilter,
         DeadlineToApplyFilter,
         'accepting'
@@ -292,7 +294,7 @@ class TaskAdmin(admin.ModelAdmin):
         url = reverse('admin:projects_project_change', args=(obj.project.id,))
         title = obj.project.title
         title = (title[:30] + '&hellip;') if len(title) > 30 else title
-        return format_html(u"<a href='{}'>{}</a>".format(url, title))
+        return format_html(u"<a href='{}'>{}</a>", url, title)
     project_link.short_description = _('Project link')
 
 
@@ -385,16 +387,18 @@ class SkillAdmin(TranslatableAdmin):
 
     def task_link(self, obj):
         url = "{}?skill_filter={}".format(reverse('admin:tasks_task_changelist'), obj.id)
-        return format_html("<a href='{}'>{} {}</a>".format(
+        return format_html(
+            "<a href='{}'>{} {}</a>",
             url, obj.task_set.count(), _('tasks')
-        ))
+        )
     task_link.short_description = _('Tasks with this skill')
 
     def member_link(self, obj):
         url = "{}?skills__id__exact={}".format(reverse('admin:members_member_changelist'), obj.id)
-        return format_html("<a href='{}'>{} {}</a>".format(
+        return format_html(
+            "<a href='{}'>{} {}</a>",
             url, obj.member_set.count(), _('users')
-        ))
+        )
     member_link.short_description = _('Users with this skill')
 
 

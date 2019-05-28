@@ -15,6 +15,8 @@ from djmoney_rates.utils import get_rate
 from djmoney_rates.exceptions import CurrencyConversionException
 from bluebottle.clients import properties
 from tenant_extras.utils import get_tenant_properties
+from bluebottle.payments_stripe.utils import get_stripe_settings
+from bluebottle.payouts.utils import get_payout_settings
 
 
 import logging
@@ -36,6 +38,7 @@ class LocalTenant(object):
     def __enter__(self):
         if self.tenant:
             connection.set_tenant(self.tenant)
+            properties.set_tenant(self.tenant)
             ContentType.objects.clear_cache()
 
     def __exit__(self, type, value, traceback):
@@ -46,7 +49,9 @@ class LocalTenant(object):
             except AttributeError:
                 logger.info("Attempted to clear missing tenant properties.")
         elif self.previous_tenant:
-            connection.set_tenant(self.tenant)
+            connection.set_tenant(self.previous_tenant)
+            properties.set_tenant(self.previous_tenant)
+            ContentType.objects.clear_cache()
 
 
 def tenant_url():
@@ -168,7 +173,7 @@ def get_platform_settings(name):
     app_name, model_name = name.split('.')
     model_app_name = 'bluebottle.{}.models'.format(app_name)
     settings_class = getattr(importlib.import_module(model_app_name), model_name)
-    settings_object = settings_class.objects.get()
+    settings_object = settings_class.load()
     serializer_app_name = 'bluebottle.{}.serializers'.format(app_name)
     serializer_class = getattr(importlib.import_module(serializer_app_name), "{}Serializer".format(model_name))
     return serializer_class(settings_object).to_representation(settings_object)
@@ -221,12 +226,13 @@ def get_public_properties(request):
             'logoUrl': "/images/logo.svg",
             'mapsApiKey': getattr(properties, 'MAPS_API_KEY', ''),
             'donationsEnabled': getattr(properties, 'DONATIONS_ENABLED', True),
-            'recurringDonationsEnabled': getattr(properties, 'RECURRING_DONATIONS_ENABLED', False),
             'siteName': current_tenant.name,
             'languages': [{'code': lang[0], 'name': lang[1]} for lang in getattr(properties, 'LANGUAGES')],
             'languageCode': get_language(),
             'siteLinks': get_user_site_links(request.user),
             'platform': {
+                'stripe': get_stripe_settings(),
+                'payouts': get_payout_settings(),
                 'content': get_platform_settings('cms.SitePlatformSettings'),
                 'projects': get_platform_settings('projects.ProjectPlatformSettings'),
                 'analytics': get_platform_settings('analytics.AnalyticsPlatformSettings'),

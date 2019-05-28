@@ -154,6 +154,10 @@ class OrderPayment(models.Model, FSMTransition):
     previous_status = None
     card_data = None
 
+    @property
+    def project(self):
+        return self.order.donations.first().project
+
     class Meta:
         permissions = (
             ('refund_orderpayment', 'Can refund order payments'),
@@ -203,6 +207,7 @@ class OrderPayment(models.Model, FSMTransition):
                         StatusDefinition.REFUND_REQUESTED,
                         StatusDefinition.REFUNDED,
                         StatusDefinition.CANCELLED,
+                        StatusDefinition.PENDING,
                         StatusDefinition.SETTLED],
                 target=StatusDefinition.FAILED)
     def failed(self):
@@ -224,7 +229,7 @@ class OrderPayment(models.Model, FSMTransition):
         field=status,
         source=[
             StatusDefinition.AUTHORIZED, StatusDefinition.SETTLED,
-            StatusDefinition.REFUND_REQUESTED,
+            StatusDefinition.REFUND_REQUESTED, StatusDefinition.PLEDGED
         ],
         target=StatusDefinition.REFUNDED
     )
@@ -280,7 +285,8 @@ class OrderPayment(models.Model, FSMTransition):
 
     @property
     def info_text(self):
-        """ The description on the payment receipt.
+        """
+        The description on the payment receipt.
         """
         tenant_url = clients.utils.tenant_site().domain
 

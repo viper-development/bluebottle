@@ -21,23 +21,8 @@ def set_status_realised():
 
 
 @shared_task
-def update_popularity():
-    """ Update the popularity score of all the projects
-
-    Simply loops over all the tenants, and updates the scores
-    """
-    logger.info("Updating projects popularity using Celery")
-
-    for tenant in Client.objects.all():
-        with LocalTenant(tenant, clear_tenant=True):
-            Project.update_popularity()
-
-    logger.info("Finished updating projects popularity using Celery")
-
-
-@shared_task
 def update_exchange_rates():
-    """ Update the popularity score of all the projects
+    """ Update the amounts according to new exchange rates of all the projects
 
     Simply loops over all the tenants, and updates the scores
     """
@@ -65,4 +50,8 @@ def refund_project(tenant, project):
     with LocalTenant(tenant, clear_tenant=True):
         for donation in project.donations:
             service = PaymentService(donation.order.order_payment)
-            service.refund_payment()
+            try:
+                service.refund_payment()
+            except Exception:
+                # Don't trip if one refund throws an error
+                pass

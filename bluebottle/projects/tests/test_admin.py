@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
 import csv
+from datetime import timedelta
 import json
 import mock
 from moneyed import Money
@@ -27,6 +28,7 @@ from bluebottle.test.factory_models.projects import ProjectFactory
 from bluebottle.test.factory_models.rewards import RewardFactory
 from bluebottle.test.factory_models.accounts import BlueBottleUserFactory
 from bluebottle.test.factory_models.geo import LocationFactory
+from bluebottle.test.factory_models.payouts import PlainPayoutAccountFactory
 from bluebottle.test.utils import BluebottleTestCase, override_settings, BluebottleAdminTestCase
 
 
@@ -41,9 +43,12 @@ class MockRequest:
 
 
 class MockUser:
+    is_active = True
+
     def __init__(self, perms=None, is_staff=True):
         self.perms = perms or []
         self.is_staff = is_staff
+        self.id = 1
 
     def has_perm(self, perm):
         return perm in self.perms
@@ -53,7 +58,7 @@ class MockUser:
     'service': 'dorado',
     'url': PAYOUT_URL
 })
-class TestProjectAdmin(BluebottleTestCase):
+class TestProjectAdmin(BluebottleAdminTestCase):
     def setUp(self):
         super(TestProjectAdmin, self).setUp()
         self.site = AdminSite()
@@ -166,12 +171,11 @@ class TestProjectAdmin(BluebottleTestCase):
         )
 
     def test_mark_payout_as_approved(self):
-        request = self.request_factory.post('/')
+        request = self.request_factory.post('/', data={'confirm': True})
         request.user = MockUser(['projects.approve_payout'])
 
         project = self._generate_completed_project()
-        project.account_number = 'NL86 INGB 0002 4455 88'
-        project.account_details = 'INGBNL2A'
+        project.payout_account = PlainPayoutAccountFactory(account_number='1234567890')
         project.save()
 
         with mock.patch('requests.post', return_value=self.mock_response) as request_mock:
@@ -181,16 +185,21 @@ class TestProjectAdmin(BluebottleTestCase):
             PAYOUT_URL, {'project_id': project.id, 'tenant': 'test'}
         )
 
-        # Check that IBAN has spaces removed
         project = Project.objects.get(pk=project.id)
-        self.assertEqual(project.account_number, 'NL86INGB0002445588')
+        self.assertEqual(project.payout_account.account_number, '1234567890')
+
+        # Check it shows up in object history
+        self.client.force_login(self.superuser)
+        url = reverse('admin:projects_project_history', args=(project.id, ))
+        response = self.client.get(url)
+        self.assertContains(response, 'Approved payout')
 
     def test_mark_payout_as_approved_remote_validation_error(self):
-        request = self.request_factory.post('/')
+        request = self.request_factory.post('/', data={'confirm': True})
         request.user = MockUser(['projects.approve_payout'])
 
         project = self._generate_completed_project()
-        project.account_number = '123456123456'
+        project.payout_account = PlainPayoutAccountFactory(account_number='1234567890')
         project.save()
 
         self.mock_response.status_code = 400
@@ -206,44 +215,12 @@ class TestProjectAdmin(BluebottleTestCase):
             request, 'Account details: name, this field is required.', level=messages.ERROR
         )
 
-    def test_mark_payout_as_approved_local_iban_validation_error(self):
-        # Test with invalid IBAN, but starting with letter
-        request = self.request_factory.post('/')
-        request.user = MockUser(['projects.approve_payout'])
-
-        project = self._generate_completed_project()
-        project.account_number = 'HH239876'
-        project.account_details = 'RABONL2U'
-        project.save()
-
-        with mock.patch.object(self.project_admin, 'message_user') as message_mock:
-            self.project_admin.approve_payout(request, project.id)
-        message_mock.assert_called_with(
-            request, "Invalid IBAN: Unknown country-code 'HH'", level='ERROR'
-        )
-
-    def test_mark_payout_as_approved_local_validation_error(self):
-        # Test with valid IBAN and invalid BIC
-        request = self.request_factory.post('/')
-        request.user = MockUser(['projects.approve_payout'])
-
-        project = self._generate_completed_project()
-        project.account_number = 'NL86 INGB 0002 4455 88'
-        project.account_details = 'Amsterdam'
-        project.save()
-
-        with mock.patch.object(self.project_admin, 'message_user') as message_mock:
-            self.project_admin.approve_payout(request, project.id)
-        message_mock.assert_called_with(
-            request, "Invalid BIC: Invalid length '9'", level='ERROR'
-        )
-
     def test_mark_payout_as_approved_internal_server_error(self):
-        request = self.request_factory.post('/')
+        request = self.request_factory.post('/', data={'confirm': True})
         request.user = MockUser(['projects.approve_payout'])
 
         project = self._generate_completed_project()
-        project.account_number = '123456123456'
+        project.payout_account = PlainPayoutAccountFactory(account_number='1234567890')
         project.save()
 
         self.mock_response.status_code = 500
@@ -262,11 +239,11 @@ class TestProjectAdmin(BluebottleTestCase):
         )
 
     def test_mark_payout_as_approved_connection_error(self):
-        request = self.request_factory.post('/')
+        request = self.request_factory.post('/', data={'confirm': True})
         request.user = MockUser(['projects.approve_payout'])
 
         project = self._generate_completed_project()
-        project.account_number = '123456123456'
+        project.payout_account = PlainPayoutAccountFactory(account_number='1234567890')
         project.save()
 
         exception = requests.ConnectionError('Host not found')
@@ -284,11 +261,11 @@ class TestProjectAdmin(BluebottleTestCase):
         )
 
     def test_mark_payout_as_approved_no_permissions(self):
-        request = self.request_factory.post('/')
+        request = self.request_factory.post('/', data={'confirm': True})
         request.user = MockUser()
 
         project = ProjectFactory.create(payout_status='needs_approval')
-        project.account_number = '123456123456'
+        project.payout_account = PlainPayoutAccountFactory(account_number='1234567890')
         project.save()
 
         with mock.patch('requests.post', return_value=self.mock_response) as request_mock:
@@ -302,11 +279,11 @@ class TestProjectAdmin(BluebottleTestCase):
         )
 
     def test_mark_payout_as_approved_wrong_status(self):
-        request = self.request_factory.post('/')
+        request = self.request_factory.post('/', data={'confirm': True})
         request.user = MockUser(['projects.approve_payout'])
 
         project = self._generate_completed_project()
-        project.account_number = '123456123456'
+        project.payout_account = PlainPayoutAccountFactory(account_number='1234567890')
         project.payout_status = 'done'
         project.save()
 
@@ -321,11 +298,11 @@ class TestProjectAdmin(BluebottleTestCase):
         message_mock.assert_called()
 
     def test_read_only_status_after_payout_approved(self):
-        request = self.request_factory.post('/')
+        request = self.request_factory.post('/', data={'confirm': True})
         request.user = MockUser(['projects.approve_payout'])
 
         project = self._generate_completed_project()
-        project.account_number = '123456123456'
+        project.payout_account = PlainPayoutAccountFactory(account_number='1234567890')
         project.save()
 
         # Project status should be editable
@@ -431,7 +408,7 @@ class TestProjectAdmin(BluebottleTestCase):
 
 
 @override_settings(ENABLE_REFUNDS=True)
-class TestProjectRefundAdmin(BluebottleTestCase):
+class TestProjectRefundAdmin(BluebottleAdminTestCase):
     def setUp(self):
         super(TestProjectRefundAdmin, self).setUp()
 
@@ -455,7 +432,7 @@ class TestProjectRefundAdmin(BluebottleTestCase):
             amount=Money(100, 'EUR'),
         )
 
-        self.request = self.request_factory.post('/')
+        self.request = self.request_factory.post('/', data={'confirm': True})
         self.request.user = MockUser(['payments.refund_orderpayment'])
 
     def test_refunds(self):
@@ -467,6 +444,12 @@ class TestProjectRefundAdmin(BluebottleTestCase):
         self.assertEqual(response.status_code, 302)
         refund_mock.assert_called_with(connection.tenant, self.project)
         self.assertEqual(self.project.status.slug, 'refunded')
+
+        # Check it shows up in object history
+        self.client.force_login(self.superuser)
+        url = reverse('admin:projects_project_history', args=(self.project.id, ))
+        response = self.client.get(url)
+        self.assertContains(response, 'Refunded project')
 
     @override_settings(ENABLE_REFUNDS=True)
     def test_refunds_not_closed(self):
@@ -507,6 +490,17 @@ class TestProjectRefundAdmin(BluebottleTestCase):
             response = self.project_admin.refund(self.request, self.project.pk)
 
             self.assertEqual(response.status_code, 403)
+            refund_mock.assert_not_called()
+
+    @override_settings(ENABLE_REFUNDS=False)
+    def test_refunds_not_confirmed(self):
+        with mock.patch.object(refund_project, 'delay') as refund_mock:
+            request = self.request_factory.post('/')
+            request.user = MockUser(['payments.refund_orderpayment'])
+
+            response = self.project_admin.refund(request, self.project.pk)
+
+            self.assertEqual(response.status_code, 200)
             refund_mock.assert_not_called()
 
 
@@ -566,7 +560,7 @@ class LocationFilterTest(BluebottleTestCase):
         self.assertEqual(queryset.get(), self.amsterdam_project)
 
 
-class ProjectReviewerFilterTest(BluebottleTestCase):
+class ProjectReviewerFilterTest(BluebottleAdminTestCase):
     """
     Test project reviewer filter
     """
@@ -576,10 +570,12 @@ class ProjectReviewerFilterTest(BluebottleTestCase):
         self.init_projects()
 
         self.user = BlueBottleUserFactory.create()
-        self.project_with_reviewer = ProjectFactory.create(
+        self.my_project = ProjectFactory.create(
             reviewer=self.user
         )
-        self.project = ProjectFactory.create(
+        self.other_reviewer = BlueBottleUserFactory.create(first_name='Frans', last_name='Bauer')
+        self.other_project = ProjectFactory.create(
+            reviewer=self.other_reviewer
         )
 
         self.request = factory.get('/')
@@ -587,14 +583,31 @@ class ProjectReviewerFilterTest(BluebottleTestCase):
         self.admin = ProjectAdmin(Project, AdminSite())
 
     def test_filter(self):
-        filter = ProjectReviewerFilter(None, {'reviewer': True}, Project, self.admin)
-        queryset = filter.queryset(self.request, Project.objects.all())
-        self.assertEqual(queryset.get(), self.project_with_reviewer)
+        project_filter = ProjectReviewerFilter(None, {'reviewer': 'me'}, Project, self.admin)
+        queryset = project_filter.queryset(self.request, Project.objects.all())
+        self.assertEqual(queryset.get(), self.my_project)
+
+    def test_no_filter(self):
+        project_filter = ProjectReviewerFilter(None, {'reviewer': None}, Project, self.admin)
+        queryset = project_filter.queryset(self.request, Project.objects.all())
+        self.assertEqual(len(queryset), len(Project.objects.all()))
 
     def test_filter_false(self):
-        filter = ProjectReviewerFilter(None, {'reviewer': False}, Project, self.admin)
-        queryset = filter.queryset(self.request, Project.objects.all())
-        self.assertEqual(len(queryset), len(Project.objects.all()))
+        project_filter = ProjectReviewerFilter(None, {'reviewer': self.other_reviewer.id}, Project, self.admin)
+        queryset = project_filter.queryset(self.request, Project.objects.all())
+        self.assertEqual(queryset.get(), self.other_project)
+
+    def test_filter_options(self):
+        project_filter = ProjectReviewerFilter(None, {}, Project, self.admin)
+
+        reviewers = [
+            ('me', 'My projects'),
+            (self.other_reviewer.id, 'Frans Bauer'),
+            (self.user.id, self.user.full_name)
+        ]
+
+        # Test the reviewer filters shows right options
+        self.assertEqual(project_filter.lookups([], self.admin), reviewers)
 
 
 class ProjectAdminFormTest(BluebottleTestCase):
@@ -611,24 +624,64 @@ class ProjectAdminFormTest(BluebottleTestCase):
         parameters = widget.url_parameters()
         self.assertTrue(parameters['is_staff'], True)
 
-    def test_bank_details_reviewed(self):
+    def test_payout_account_reviewed(self):
         self.form.cleaned_data = {
             'status': ProjectPhase.objects.get(slug='campaign'),
-            'bank_details_reviewed': False,
+            'payout_account': PlainPayoutAccountFactory.create(
+                reviewed=False
+            ),
             'amount_asked': Money(100, 'EUR')
         }
         with self.assertRaises(ValidationError) as error:
             self.form.clean()
 
-        self.assertEqual(
-            error.exception.message,
-            'The bank details need to be reviewed before approving a project'
+        self.assertTrue(
+            'The bank details need to be reviewed before approving a project' in
+            error.exception.message
         )
 
-    def test_bank_details_reviewed_no_amount(self):
+    def test_payout_account_none(self):
         self.form.cleaned_data = {
             'status': ProjectPhase.objects.get(slug='campaign'),
-            'bank_details_reviewed': False,
+            'payout_account': None,
+            'amount_asked': Money(100, 'EUR')
+        }
+        with self.assertRaises(ValidationError) as error:
+            self.form.clean()
+
+        self.assertTrue(
+            'The bank details need to be reviewed before approving a project' in
+            error.exception.message
+        )
+
+    def test_payout_account_reviewed_no_amount(self):
+        self.form.cleaned_data = {
+            'status': ProjectPhase.objects.get(slug='campaign'),
+            'payout_account': PlainPayoutAccountFactory.create(
+                reviewed=False
+            ),
+        }
+        self.form.clean()
+
+    def test_deadline_too_far(self):
+        self.form.cleaned_data = {
+            'status': ProjectPhase.objects.get(slug='campaign'),
+            'deadline': now() + timedelta(days=70),
+            'amount_asked': Money(100, 'EUR')
+        }
+        with self.assertRaises(ValidationError) as error:
+            self.form.clean()
+
+        self.assertTrue(
+            'Crowdfunding projects cannot run longer then 60 days' in
+            error.exception.message
+        )
+
+    def test_deadline(self):
+        self.form.cleaned_data = {
+            'status': ProjectPhase.objects.get(slug='campaign'),
+            'deadline': now() + timedelta(days=40),
+            'amount_asked': Money(100, 'EUR')
         }
         self.form.clean()
 
@@ -699,6 +752,9 @@ class ProjectAdminExportTest(BluebottleTestCase):
 
     def test_project_export(self):
         project = ProjectFactory(title='Just an example')
+        project.projectlocation.latitude = '43.068620000000000000'
+        project.projectlocation.longitude = '23.676374000000000000'
+        project.projectlocation.save()
         CustomProjectFieldSettings.objects.create(name='Extra Info')
         field = CustomProjectFieldSettings.objects.create(name='How is it')
         CustomProjectField.objects.create(project=project, value='This is nice!', field=field)
@@ -712,7 +768,9 @@ class ProjectAdminExportTest(BluebottleTestCase):
 
         # Test basic info and extra field are in the csv export
         self.assertEqual(headers[0], 'title')
-        self.assertEqual(headers[28], 'Extra Info')
+        self.assertEqual(headers[28], 'latitude')
+        self.assertEqual(headers[30], 'Extra Info')
         self.assertEqual(data[0], 'Just an example')
-        self.assertEqual(data[28], '')
-        self.assertEqual(data[29], 'This is nice!')
+        self.assertEqual(data[30], '')
+        self.assertEqual(data[28], '43.068620000000000000')
+        self.assertEqual(data[31], 'This is nice!')

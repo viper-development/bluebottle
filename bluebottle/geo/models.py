@@ -1,14 +1,18 @@
+from django.contrib.contenttypes.fields import GenericForeignKey
+from django.contrib.contenttypes.models import ContentType
+
 from django.db import models
 from django.utils.translation import ugettext_lazy as _
 from geoposition.fields import GeopositionField
 from sorl.thumbnail import ImageField
-from parler.models import TranslatableModel, TranslatedFields
+from parler.models import TranslatedFields
 
+from bluebottle.utils.models import SortableTranslatableModel
 from .validators import Alpha2CodeValidator, Alpha3CodeValidator, \
     NumericCodeValidator
 
 
-class GeoBaseModel(TranslatableModel):
+class GeoBaseModel(SortableTranslatableModel):
     """
     Abstract base model for the UN M.49 geoscheme.
     Refs: http://unstats.un.org/unsd/methods/m49/m49.htm
@@ -89,6 +93,7 @@ class Country(GeoBaseModel):
             "Assistance from the OECD's Development Assistance Committee."))
 
     class Meta(GeoBaseModel.Meta):
+        ordering = ['translations__name']
         verbose_name = _("country")
         verbose_name_plural = _("countries")
 
@@ -124,3 +129,20 @@ class Location(models.Model):
 
     def __unicode__(self):
         return self.name
+
+
+class Place(models.Model):
+    street_number = models.CharField(_('Street Number'), max_length=255, blank=True, null=True)
+    street = models.CharField(_('Street'), max_length=255, blank=True, null=True)
+    postal_code = models.CharField(_('Postal Code'), max_length=255, blank=True, null=True)
+    locality = models.CharField(_('Locality'), max_length=255, blank=True, null=True)
+    province = models.CharField(_('Province'), max_length=255, blank=True, null=True)
+    country = models.ForeignKey('geo.Country')
+
+    formatted_address = models.CharField(_('Address'), max_length=255, blank=True, null=True)
+
+    position = GeopositionField()
+
+    content_type = models.ForeignKey(ContentType, on_delete=models.CASCADE)
+    object_id = models.PositiveIntegerField()
+    content_object = GenericForeignKey('content_type', 'object_id')

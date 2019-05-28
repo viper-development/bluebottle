@@ -9,7 +9,7 @@ from django.contrib.auth.models import Permission
 from django.core.exceptions import SuspiciousFileOperation, ValidationError
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.core.management import call_command
-from django.test import TestCase
+from django.test import TestCase, RequestFactory
 from django.test.utils import override_settings
 from django.utils.encoding import force_bytes
 
@@ -29,7 +29,7 @@ from bluebottle.utils.permissions import (
     ResourcePermission, ResourceOwnerPermission, RelatedResourceOwnerPermission,
     OneOf
 )
-from bluebottle.utils.utils import clean_for_hashtag
+from bluebottle.utils.utils import clean_for_hashtag, get_client_ip
 from ..email_backend import send_mail, create_message
 
 
@@ -351,6 +351,23 @@ class TestTenantAwareMailServer(unittest.TestCase):
             self.assertEquals(smtp.call_args[0], ('tenanthost', 4242))
             self.assertTrue(connection.sendmail.called)
 
+    def test_return_path(self):
+        """ Test simple / traditional case where config comes from settings """
+        with mock.patch("bluebottle.clients.mail.properties",
+                        new=mock.Mock([])) as properties:
+            return_path = 'info@test.example.com'
+            properties.TENANT_MAIL_PROPERTIES = {
+                'address': 'info@example.com',
+                'sender': 'Info Tester',
+                'return_path': return_path
+            }
+            msg = EmailMultiAlternatives(
+                subject="test", body="test",
+                to=["test@example.com"]
+            )
+            self.assertEquals(msg.extra_headers['Return-Path'], return_path)
+            self.assertEquals(msg.from_email, 'Info Tester <info@example.com>')
+
 
 class MoneySerializerTestCase(BluebottleTestCase):
     def setUp(self):
@@ -615,6 +632,13 @@ class RestrictedImageFormFieldTestCase(TestCase):
 
         self.assertEqual(result, image_file)
 
+    def test_image_suffix_capitals(self):
+        with open('./bluebottle/utils/tests/test_images/upload.png') as image:
+            image_file = SimpleUploadedFile('upload.PNG', image.read(), content_type='image/png')
+            result = self.field.to_python(image_file)
+
+        self.assertEqual(result, image_file)
+
     def test_non_image(self):
         with open('./bluebottle/utils/tests/test_images/non-image.svg') as image:
             image_file = SimpleUploadedFile('upload.png', image.read(), content_type='image/png')
@@ -635,3 +659,31 @@ class RestrictedImageFormFieldTestCase(TestCase):
 
             with self.assertRaises(ValidationError):
                 self.field.to_python(image_file)
+
+    def test_image_incorrect_suffix(self):
+        with open('./bluebottle/utils/tests/test_images/upload.png') as image:
+            image_file = SimpleUploadedFile('upload.html', image.read(), content_type='image/png')
+
+            with self.assertRaises(ValidationError):
+                self.field.to_python(image_file)
+
+    def test_image_incorrect_suffix_capitals(self):
+        with open('./bluebottle/utils/tests/test_images/upload.png') as image:
+            image_file = SimpleUploadedFile('upload.HTML', image.read(), content_type='image/png')
+
+            with self.assertRaises(ValidationError):
+                self.field.to_python(image_file)
+
+
+class GetClientIPTestCase(TestCase):
+    def test_get_client_ip(self):
+        request = RequestFactory().get('/', HTTP_REMOTE_ADDR='127.0.0.1')
+
+        ip = get_client_ip(request)
+        self.assertEqual(ip, '127.0.0.1')
+
+    def test_get_client_ip_no_spoofing(self):
+        request = RequestFactory().get('/', HTTP_REMOTE_ADDR='8.8.8.8,127.0.0.1')
+
+        ip = get_client_ip(request)
+        self.assertEqual(ip, '127.0.0.1')

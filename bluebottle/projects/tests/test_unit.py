@@ -7,6 +7,7 @@ from bluebottle.projects.admin import mark_as
 from django.db.models import Count
 from django.test.client import RequestFactory
 from django.test.utils import override_settings
+from django.urls.base import reverse
 from django.utils import timezone
 from moneyed.classes import Money
 
@@ -19,15 +20,23 @@ from bluebottle.suggestions.models import Suggestion
 from bluebottle.test.factory_models.accounts import BlueBottleUserFactory
 from bluebottle.test.factory_models.donations import DonationFactory
 from bluebottle.test.factory_models.orders import OrderFactory
+from bluebottle.test.factory_models.payouts import PlainPayoutAccountFactory, PayoutDocumentFactory
 from bluebottle.test.factory_models.projects import (
-    ProjectFactory, ProjectPhaseFactory, ProjectThemeFactory, ProjectDocumentFactory
+    ProjectFactory, ProjectPhaseFactory, ProjectThemeFactory
 )
 from bluebottle.test.factory_models.suggestions import SuggestionFactory
-from bluebottle.test.factory_models.tasks import TaskFactory, SkillFactory, TaskMemberFactory
-from bluebottle.test.factory_models.votes import VoteFactory
-from bluebottle.test.utils import BluebottleTestCase
+from bluebottle.test.factory_models.tasks import TaskFactory, SkillFactory
+from bluebottle.test.utils import BluebottleTestCase, BluebottleAdminTestCase
 from bluebottle.utils.utils import StatusDefinition
 from bluebottle.utils.models import Language
+
+
+class MockUser:
+    is_active = True
+
+    def __init__(self, perms=None, is_staff=True):
+        self.is_staff = is_staff
+        self.id = 1
 
 
 class TestProjectStatusUpdate(BluebottleTestCase):
@@ -351,40 +360,24 @@ class TestProjectStatusChangeSuggestionUpdate(BluebottleTestCase):
         self.assertEquals(suggestion.status, 'in_progress')
 
 
-class TestProjectPopularity(BluebottleTestCase):
-    def setUp(self):
-        super(TestProjectPopularity, self).setUp()
-        self.init_projects()
-
-        self.project = ProjectFactory.create()
-
-        VoteFactory.create(project=self.project)
-        task = TaskFactory.create(project=self.project)
-        TaskMemberFactory.create(task=task)
-
-        order = OrderFactory.create(status=StatusDefinition.SUCCESS)
-
-        DonationFactory(order=order, project=self.project)
-
-    def test_update_popularity(self):
-        Project.update_popularity()
-
-        self.assertEqual(Project.objects.get(id=self.project.id).popularity, 11)
-
-
-class TestProjectBulkActions(BluebottleTestCase):
+class TestProjectBulkActions(BluebottleAdminTestCase):
     def setUp(self):
         super(TestProjectBulkActions, self).setUp()
         self.init_projects()
 
         self.projects = [ProjectFactory.create(title='test {}'.format(i)) for i in range(10)]
         self.request = RequestFactory().post('/admin/some', data={'action': 'plan-new'})
+        self.request.user = MockUser()
 
     def test_mark_as_plan_new(self):
         mark_as(None, self.request, Project.objects)
 
         for project in Project.objects.all():
             self.assertEqual(project.status.slug, 'plan-new')
+        self.client.force_login(self.superuser)
+        url = reverse('admin:projects_project_history', args=(project.id, ))
+        response = self.client.get(url)
+        self.assertContains(response, 'Changed project status to Plan - Draft')
 
     def test_project_phase_log_creation(self):
         mark_as(None, self.request, Project.objects)
@@ -478,6 +471,28 @@ class TestModel(BluebottleTestCase):
         self.project.amount_asked = Money(20, 'EUR')
         self.project.amount_donated = Money(10, 'EUR')
         self.assertEqual(self.project.donated_percentage, 50)
+
+    def test_campaign_duration(self):
+        self.project.deadline = None
+        self.project.campaign_duration = 10
+        self.project.save()
+
+        self.assertEqual(self.project.deadline, None)
+
+        self.project.status = ProjectPhase.objects.get(slug='campaign')
+        self.project.save()
+
+        self.assertEqual((self.project.deadline - timezone.now()).days, 10)
+
+    def test_campaign_ended_and_deadline(self):
+        self.project.deadline = timezone.now() + timedelta(days=20)
+        self.project.campaign_duration = 10
+        self.project.save()
+
+        self.project.status = ProjectPhase.objects.get(slug='campaign')
+        self.project.save()
+
+        self.assertEqual((self.project.deadline - timezone.now()).days, 20)
 
 
 class TestProjectTheme(BluebottleTestCase):
@@ -656,40 +671,36 @@ class TestProjectDocument(BluebottleTestCase):
     def setUp(self):
         self.project = ProjectFactory.create(
             language=Language.objects.get(code='en'),
-            status=ProjectPhase.objects.get(slug='plan-submitted')
+            status=ProjectPhase.objects.get(slug='plan-submitted'),
+            payout_account=PlainPayoutAccountFactory.create(
+                document=PayoutDocumentFactory.create()
+            )
         )
-        self.document = ProjectDocumentFactory.create(
-            project=self.project,
-            file='private/projects/documents/test.jpg'
-        )
-
-    def test_document_url(self):
-        self.assertTrue(self.document.document_url, '/downloads/project/documents')
-        response = self.client.get(self.document.document_url)
-
-        self.assertEquals(response.status_code, 200)
-        self.assertEqual(response['X-Accel-Redirect'], '/media/private/projects/documents/test.jpg')
 
     def test_delete_camppaign(self):
         self.project.status = ProjectPhase.objects.get(slug='campaign')
         self.project.save()
+        self.project.payout_account.refresh_from_db()
 
-        self.assertEqual(len(self.project.documents.all()), 0)
+        self.assertIsNone(self.project.payout_account.document)
 
     def test_delete_submitted(self):
         self.project.status = ProjectPhase.objects.get(slug='plan-submitted')
         self.project.save()
+        self.project.payout_account.refresh_from_db()
 
-        self.assertEqual(len(self.project.documents.all()), 1)
+        self.assertTrue(self.project.payout_account.document)
 
     def test_delete_needs_work(self):
         self.project.status = ProjectPhase.objects.get(slug='plan-needs-work')
         self.project.save()
+        self.project.payout_account.refresh_from_db()
 
-        self.assertEqual(len(self.project.documents.all()), 1)
+        self.assertTrue(self.project.payout_account.document)
 
     def test_delete_closed(self):
         self.project.status = ProjectPhase.objects.get(slug='closed')
         self.project.save()
+        self.project.payout_account.refresh_from_db()
 
-        self.assertEqual(len(self.project.documents.all()), 0)
+        self.assertIsNone(self.project.payout_account.document)

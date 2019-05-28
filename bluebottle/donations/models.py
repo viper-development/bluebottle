@@ -1,10 +1,12 @@
 from django.db import models
+from django.contrib.contenttypes.fields import GenericRelation
 from django.utils.translation import ugettext_lazy as _
 
 from django_extensions.db.fields import (ModificationDateTimeField,
                                          CreationDateTimeField)
 
 from bluebottle.utils.fields import MoneyField
+from bluebottle.utils.models import MailLog
 from bluebottle.utils.utils import StatusDefinition
 
 
@@ -13,6 +15,7 @@ class Donation(models.Model):
     Donation of an amount from a user to a project.
     """
     amount = MoneyField(_("Amount"))
+    payout_amount = MoneyField(_("Payout amount"))
 
     project = models.ForeignKey('projects.Project',
                                 verbose_name=_("Project"))
@@ -35,6 +38,8 @@ class Donation(models.Model):
     completed = models.DateTimeField(_("Ready"), blank=True, editable=False, null=True)
     anonymous = models.BooleanField(_("Anonymous"), default=False)
     name = models.CharField(_("Name of donor"), max_length=200, blank=True, null=True, db_index=True)
+
+    mail_logs = GenericRelation(MailLog)
 
     class Meta:
         verbose_name = _('donation')
@@ -71,3 +76,8 @@ class Donation(models.Model):
         if not hasattr(order_payment, 'payment'):
             return '?'
         return order_payment.payment.method_name
+
+    def save(self, *args, **kwargs):
+        if not self.payout_amount:
+            self.payout_amount = self.amount
+        super(Donation, self).save(*args, **kwargs)
