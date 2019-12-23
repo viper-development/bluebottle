@@ -170,7 +170,7 @@ class FundingAdmin(ActivityChildAdmin):
 
     def percentage_donated(self, obj):
         if obj.target and obj.target.amount:
-            return '{:.2f}%'.format((obj.amount_raised.amount / obj.target.amount) * 100)
+            return '{:.2f}%'.format((obj.amount_donated.amount / obj.target.amount) * 100)
         else:
             return '0%'
     percentage_donated.short_description = _('% donated')
@@ -187,7 +187,7 @@ class FundingAdmin(ActivityChildAdmin):
     amount_raised.short_description = _('amount donated + matched')
 
     def amount_donated(self, obj):
-        return obj.amount_raised
+        return obj.amount_donated
     amount_donated.short_description = _('amount donated')
 
     detail_fields = (
@@ -240,7 +240,7 @@ class FundingAdmin(ActivityChildAdmin):
     payout_links.short_description = _('Payouts')
 
     def combined_status(self, obj):
-        if obj.status == 'in_review':
+        if obj.review_status != ActivityReviewTransitions.values.approved:
             return obj.review_status
         return obj.status
     combined_status.short_description = _('status')
