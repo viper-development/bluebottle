@@ -249,28 +249,30 @@ class override_properties():
 
 
 class JSONAPITestClient(Client):
+    def __init__(self, tenant=None, *args, **kwargs):
+        super(JSONAPITestClient, self).__init__(**kwargs)
+        self.tenant = tenant
 
-    def patch(self, path, data='',
-              content_type='application/vnd.api+json',
-              follow=False, secure=False, **extra):
-        return super(JSONAPITestClient, self).patch(path, data, content_type, follow, secure, **extra)
+    def patch(self, content_type='application/vnd.api+json', *args, **extra):
+        return super(JSONAPITestClient, self).patch(content_type=content_type, *args, **extra)
 
-    def put(self, path, data='',
-            content_type='application/vnd.api+json',
-            follow=False, secure=False, **extra):
-        return super(JSONAPITestClient, self).put(path, data, content_type, follow, secure, **extra)
+    def put(self, content_type='application/vnd.api+json', *args, **extra):
+        return super(JSONAPITestClient, self).put(content_type=content_type, *args, **extra)
 
-    def post(self, path, data='',
-             content_type='application/vnd.api+json',
-             follow=False, secure=False, **extra):
-        return super(JSONAPITestClient, self).post(path, data, content_type, follow, secure, **extra)
+    def post(self, *args, **extra):
+        if 'content_type' not in extra:
+            extra['content_type'] = 'application/vnd.api+json'
 
-    def generic(self, method, path, data='',
-                content_type='application/vnd.api+json',
-                secure=False, user=None, **extra):
-        if user:
-            extra['HTTP_AUTHORIZATION'] = "JWT {0}".format(user.get_jwt_token())
-        return super(JSONAPITestClient, self).generic(method, path, data, content_type, secure, **extra)
+        return super(JSONAPITestClient, self).post(*args, **extra)
+
+    def generic(self, *args, **extra):
+        if 'user' in extra:
+            extra['HTTP_AUTHORIZATION'] = "JWT {0}".format(extra['user'].get_jwt_token())
+
+        if self.tenant:
+            extra['HTTP_HOST'] = self.tenant.domain_url
+
+        return super(JSONAPITestClient, self).generic(*args, **extra)
 
 
 def get_included(response, type):

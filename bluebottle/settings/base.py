@@ -352,6 +352,8 @@ TENANT_APPS = (
     'bluebottle.funding_flutterwave',
     'bluebottle.funding_lipisha',
 
+    'bluebottle.activity_pub',
+
     'bluebottle.tasks',
     'bluebottle.homepage',
     'bluebottle.payouts',
@@ -408,6 +410,7 @@ TENANT_APPS = (
     'bluebottle.fundraisers',
     'bluebottle.donations',
     'bluebottle.orders',
+
 
     # CMS page contents
     'fluent_contents',

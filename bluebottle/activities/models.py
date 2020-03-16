@@ -23,6 +23,7 @@ class Activity(TransitionsMixin, ValidatedModelMixin, PolymorphicModel):
         verbose_name=_('owner'),
         related_name='activities',
     )
+    platform = models.ForeignKey('activity_pub.Server', null=True)
 
     highlight = models.BooleanField(default=False,
                                     help_text=_('Highlight this activity to show it on homepage'))
@@ -113,6 +114,8 @@ class Contribution(TransitionsMixin, PolymorphicModel):
     status = FSMField(
         default=ContributionTransitions.values.new,
     )
+
+    platform = models.ForeignKey('activity_pub.Server', null=True)
 
     created = models.DateTimeField(default=timezone.now)
     updated = models.DateTimeField(auto_now=True)

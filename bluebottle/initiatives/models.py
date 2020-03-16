@@ -39,6 +39,7 @@ class Initiative(TransitionsMixin, NotificationModelMixin, ValidatedModelMixin, 
         choices=InitiativeReviewTransitions.values.choices,
         protected=True
     )
+    platform = models.ForeignKey('activity_pub.Server', null=True)
 
     title = models.CharField(_('title'), max_length=255)
 

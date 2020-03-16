@@ -297,10 +297,13 @@ JET_SIDE_MENU_ITEMS = [  # A list of application or custom item dicts
                 'name': 'scim.scimplatformsettings',
                 'permissions': ['scim.change_scimplatformsettings']
             },
-
             {
                 'name': 'mails.mailplatformsettings',
                 'permissions': ['mails.change_mailplatformsettings']
+            },
+            {
+                'name': 'activity_pub.server',
+                'permissions': ['activity_pub.change_server']
             },
             {
                 'name': 'funding.paymentprovider',

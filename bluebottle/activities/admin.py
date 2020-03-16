@@ -98,6 +98,7 @@ class ActivityChildAdmin(PolymorphicChildModelAdmin, FSMAdmin):
         'created',
         'updated',
         'stats_data',
+        'platform',
     )
 
     def get_status_fields(self, request, obj=None):

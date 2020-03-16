@@ -33,6 +33,7 @@ class BaseActivitySerializer(ModelSerializer):
         'owner': 'bluebottle.initiatives.serializers.MemberSerializer',
         'initiative': 'bluebottle.initiatives.serializers.InitiativeSerializer',
         'initiative.image': 'bluebottle.initiatives.serializers.InitiativeImageSerializer',
+        'platform': 'bluebottle.activity_pub.serializers.ServerSerializer',
     }
 
     def get_is_follower(self, instance):
@@ -55,6 +56,7 @@ class BaseActivitySerializer(ModelSerializer):
             'stats',
             'errors',
             'required',
+            'platform',
         )
 
         meta_fields = (
@@ -73,6 +75,7 @@ class BaseActivitySerializer(ModelSerializer):
             'initiative',
             'initiative.place',
             'initiative.image',
+            'platform',
         ]
         resource_name = 'activities'
 
@@ -92,6 +95,7 @@ class BaseActivityListSerializer(ModelSerializer):
     included_serializers = {
         'initiative': 'bluebottle.initiatives.serializers.InitiativeListSerializer',
         'owner': 'bluebottle.initiatives.serializers.MemberSerializer',
+        'platform': 'bluebottle.activity_pub.serializers.ServerSerializer',
     }
 
     def get_is_follower(self, instance):
@@ -125,6 +129,7 @@ class BaseActivityListSerializer(ModelSerializer):
             'owner',
             'initiative',
             'initiative.image',
+            'platform',
             'initiative.location',
             'initiative.place',
         ]
