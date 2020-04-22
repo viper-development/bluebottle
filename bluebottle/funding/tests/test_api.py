@@ -127,6 +127,77 @@ class BudgetLineListTestCase(BluebottleTestCase):
         self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
 
 
+class BudgetLineDetailTestCase(BluebottleTestCase):
+    def setUp(self):
+        super(BudgetLineDetailTestCase, self).setUp()
+        self.client = JSONAPITestClient()
+        self.user = BlueBottleUserFactory()
+        self.initiative = InitiativeFactory.create()
+
+        self.initiative.transitions.submit()
+        self.initiative.transitions.approve()
+
+        self.funding = FundingFactory.create(
+            owner=self.user,
+            initiative=self.initiative
+        )
+        self.budget_line = BudgetLineFactory.create(activity=self.funding)
+
+        self.update_url = reverse('funding-budget-line-detail', args=(self.budget_line.pk, ))
+
+        self.data = {
+            'data': {
+                'type': 'activities/budget-lines',
+                'id': self.budget_line.pk,
+                'attributes': {
+                    'description': 'Some other title',
+                },
+            }
+        }
+
+    def test_update(self):
+        response = self.client.patch(
+            self.update_url,
+            data=json.dumps(self.data),
+            user=self.funding.owner
+        )
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.budget_line.refresh_from_db()
+
+        self.assertEqual(
+            self.budget_line.description,
+            self.data['data']['attributes']['description']
+        )
+
+    def test_update_anonymous(self):
+        response = self.client.patch(
+            self.update_url,
+            data=json.dumps(self.data)
+        )
+        self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
+
+    def test_update_other_user(self):
+        response = self.client.patch(
+            self.update_url,
+            data=json.dumps(self.data),
+            user=BlueBottleUserFactory.create()
+        )
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+
+    def test_get_anonymous(self):
+        response = self.client.get(
+            self.update_url
+        )
+        self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
+
+    def test_get_other_user(self):
+        response = self.client.get(
+            self.update_url,
+            user=BlueBottleUserFactory.create()
+        )
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+
+
 class RewardListTestCase(BluebottleTestCase):
     def setUp(self):
         super(RewardListTestCase, self).setUp()
@@ -215,6 +286,77 @@ class RewardListTestCase(BluebottleTestCase):
         )
 
         self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
+
+
+class RewardDetailTestCase(BluebottleTestCase):
+    def setUp(self):
+        super(RewardDetailTestCase, self).setUp()
+        self.client = JSONAPITestClient()
+        self.user = BlueBottleUserFactory()
+        self.initiative = InitiativeFactory.create()
+
+        self.initiative.transitions.submit()
+        self.initiative.transitions.approve()
+
+        self.funding = FundingFactory.create(
+            owner=self.user,
+            initiative=self.initiative
+        )
+        self.reward = RewardFactory.create(activity=self.funding)
+
+        self.update_url = reverse('funding-reward-detail', args=(self.reward.pk, ))
+
+        self.data = {
+            'data': {
+                'type': 'activities/rewards',
+                'id': self.reward.pk,
+                'attributes': {
+                    'title': 'Some other title',
+                },
+            }
+        }
+
+    def test_update(self):
+        response = self.client.patch(
+            self.update_url,
+            data=json.dumps(self.data),
+            user=self.funding.owner
+        )
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.reward.refresh_from_db()
+
+        self.assertEqual(
+            self.reward.title,
+            self.data['data']['attributes']['title']
+        )
+
+    def test_update_anonymous(self):
+        response = self.client.patch(
+            self.update_url,
+            data=json.dumps(self.data)
+        )
+        self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
+
+    def test_update_other_user(self):
+        response = self.client.patch(
+            self.update_url,
+            data=json.dumps(self.data),
+            user=BlueBottleUserFactory.create()
+        )
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+
+    def test_get_anonymous(self):
+        response = self.client.get(
+            self.update_url
+        )
+        self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
+
+    def test_get_other_user(self):
+        response = self.client.get(
+            self.update_url,
+            user=BlueBottleUserFactory.create()
+        )
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
 
 
 class FundingDetailTestCase(BluebottleTestCase):
@@ -1591,3 +1733,54 @@ class PayoutDetailTestCase(BluebottleTestCase):
 
         payout.refresh_from_db()
         self.assertEqual(payout.status, 'started')
+
+
+class FundingAPIPermissionsTestCase(BluebottleTestCase):
+
+    def setUp(self):
+        super(FundingAPIPermissionsTestCase, self).setUp()
+        self.client = JSONAPITestClient()
+        self.user = BlueBottleUserFactory.create()
+
+    def assertPostNotAllowed(self, url, user=None):
+        data = self.client.get(url, user=user)
+        response = self.client.patch(url, data.data, user=user)
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+
+    def test_funding_detail(self):
+        funding = FundingFactory.create()
+        url = reverse('funding-detail', args=(funding.id,))
+        self.assertPostNotAllowed(url, self.user)
+
+    def test_funding_budgetline_list(self):
+        BudgetLineFactory.create()
+        url = reverse('funding-budget-line-list')
+        response = self.client.get(url)
+        self.assertEqual(response.status_code, status.HTTP_405_METHOD_NOT_ALLOWED)
+        response = self.client.get(url, user=self.user)
+        self.assertEqual(response.status_code, status.HTTP_405_METHOD_NOT_ALLOWED)
+
+    def test_funding_budgetline_detail(self):
+        budget_line = BudgetLineFactory.create()
+        url = reverse('funding-budget-line-detail', args=(budget_line.id,))
+        self.assertPostNotAllowed(url, self.user)
+
+    def test_funding_reward_list(self):
+        url = reverse('funding-reward-list')
+        response = self.client.get(url)
+        self.assertEqual(response.status_code, status.HTTP_405_METHOD_NOT_ALLOWED)
+        response = self.client.get(url, user=self.user)
+        self.assertEqual(response.status_code, status.HTTP_405_METHOD_NOT_ALLOWED)
+
+    def test_funding_reward_detail(self):
+        reward = RewardFactory.create()
+        url = reverse('funding-reward-detail', args=(reward.id,))
+        self.assertPostNotAllowed(url, self.user)
+
+    def test_donation_list(self):
+        DonationFactory.create(status='succeeded')
+        url = reverse('funding-donation-list')
+        response = self.client.get(url)
+        self.assertEqual(response.status_code, status.HTTP_405_METHOD_NOT_ALLOWED)
+        response = self.client.get(url, user=self.user)
+        self.assertEqual(response.status_code, status.HTTP_405_METHOD_NOT_ALLOWED)

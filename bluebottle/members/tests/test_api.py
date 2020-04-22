@@ -1,23 +1,16 @@
-import mock
 import time
 
-from django.db import connection
+import mock
+from captcha import client
 from django.core import mail
-from django.core.urlresolvers import reverse
 from django.core.signing import TimestampSigner
+from django.core.urlresolvers import reverse
+from django.db import connection
 from django.test.utils import override_settings
-
 from rest_framework import status
 
 from bluebottle.members.models import MemberPlatformSettings, UserActivity, Member
-from bluebottle.tasks.models import Task, TaskMember
-from bluebottle.projects.models import Project
-from bluebottle.donations.models import Donation
 from bluebottle.test.factory_models.accounts import BlueBottleUserFactory
-from bluebottle.test.factory_models.tasks import TaskMemberFactory, TaskFactory
-from bluebottle.test.factory_models.projects import ProjectFactory
-from bluebottle.test.factory_models.orders import OrderFactory
-from bluebottle.test.factory_models.donations import DonationFactory
 from bluebottle.test.utils import BluebottleTestCase
 
 
@@ -64,6 +57,81 @@ class ProjectPlatformSettingsTestCase(BluebottleTestCase):
             response.data['platform']['members']['consent_link'],
             '/pages/terms-and-conditions'
         )
+
+
+class LoginTestCase(BluebottleTestCase):
+    """
+    Integration tests for the SignUp token api endpoint.
+    """
+    def setUp(self):
+        self.password = 'blablabla'
+        self.email = 'test@example.com'
+        self.user = BlueBottleUserFactory.create(email=self.email, password=self.password)
+
+        super(LoginTestCase, self).setUp()
+
+    def test_login(self):
+        response = self.client.post(
+            reverse('token-auth'), {'email': self.email, 'password': self.password}
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        current_user_response = self.client.get(
+            reverse('user-current'), token='JWT {}'.format(response.json()['token'])
+        )
+
+        self.assertEqual(current_user_response.status_code, status.HTTP_200_OK)
+
+    def test_login_failed(self):
+        response = self.client.post(
+            reverse('token-auth'), {'email': self.email, 'password': 'wrong'}
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+
+    def test_login_failed_multiple(self):
+        for i in range(0, 11):
+            response = self.client.post(
+                reverse('token-auth'), {'email': self.email, 'password': 'wrong'}
+            )
+
+        self.assertEqual(response.status_code, status.HTTP_429_TOO_MANY_REQUESTS)
+
+        response = self.client.post(
+            reverse('token-auth'), {'email': self.email, 'password': self.password}
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_429_TOO_MANY_REQUESTS)
+
+    def test_login_failed_captcha(self):
+        for i in range(0, 11):
+            self.client.post(
+                reverse('token-auth'), {'email': self.email, 'password': 'wrong'}
+            )
+
+        mock_response = client.RecaptchaResponse(True, extra_data={'hostname': 'testserver'})
+
+        with mock.patch.object(client, 'submit', return_value=mock_response):
+            captcha_response = self.client.post(
+                reverse('captcha-verification'), {'token': 'test-token'}
+            )
+
+        self.assertEqual(captcha_response.status_code, status.HTTP_201_CREATED)
+
+        response = self.client.post(
+            reverse('token-auth'), {'email': self.email, 'password': self.password}
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+    def test_login_inactive(self):
+        self.user.is_active = False
+        self.user.save()
+        response = self.client.post(
+            reverse('token-auth'), {'email': self.email, 'password': self.password}
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
 
 
 @override_settings(SEND_WELCOME_MAIL=True)
@@ -317,13 +385,6 @@ class UserDataExportTest(BluebottleTestCase):
         self.user_2 = BlueBottleUserFactory.create()
         self.user_2_token = "JWT {0}".format(self.user_2.get_jwt_token())
 
-        for i in range(0, 10):
-            ProjectFactory.create(owner=self.user_1)
-            TaskFactory.create(author=self.user_1)
-            TaskMemberFactory.create(member=self.user_1)
-            order = OrderFactory.create(user=self.user_1)
-            DonationFactory.create(order=order)
-
         # User with partner organization
         self.user_export_url = reverse('user-export')
 
@@ -336,26 +397,6 @@ class UserDataExportTest(BluebottleTestCase):
         self.assertEqual(response.data['first_name'], self.user_1.first_name)
         self.assertEqual(response.data['last_name'], self.user_1.first_name)
 
-        self.assertEqual(len(response.data['projects']), 10)
-        project_ids = [project.slug for project in Project.objects.filter(owner=self.user_1)]
-        for project in response.data['projects']:
-            self.assertTrue(project['id'] in project_ids)
-
-        self.assertEqual(len(response.data['tasks']), 10)
-        task_ids = [task.pk for task in Task.objects.filter(author=self.user_1)]
-        for task in response.data['tasks']:
-            self.assertTrue(task['id'] in task_ids)
-
-        self.assertEqual(len(response.data['task_members']), 10)
-        task_member_ids = [task.pk for task in TaskMember.objects.filter(member=self.user_1)]
-        for task_member in response.data['task_members']:
-            self.assertTrue(task_member['id'] in task_member_ids)
-
-        self.assertEqual(len(response.data['donations']), 10)
-        donation_ids = [donation.pk for donation in Donation.objects.filter(order__user=self.user_1)]
-        for donation in response.data['donations']:
-            self.assertTrue(donation['id'] in donation_ids)
-
     def test_user_2_(self):
         """
         Test retrieving the currently logged in user after login.
@@ -364,10 +405,6 @@ class UserDataExportTest(BluebottleTestCase):
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(response.data['first_name'], self.user_2.first_name)
         self.assertEqual(response.data['last_name'], self.user_2.first_name)
-        self.assertEqual(len(response.data['projects']), 0)
-        self.assertEqual(len(response.data['donations']), 0)
-        self.assertEqual(len(response.data['tasks']), 0)
-        self.assertEqual(len(response.data['task_members']), 0)
 
     def test_unauthenticated(self):
         response = self.client.get(self.user_export_url)
@@ -387,6 +424,7 @@ class EmailSetTest(BluebottleTestCase):
             email='user@example.com'
         )
         self.user_token = "JWT {0}".format(self.user.get_jwt_token())
+        self.current_user_url = reverse('user-current')
 
         self.set_email_url = reverse('user-set-email')
 
@@ -400,9 +438,20 @@ class EmailSetTest(BluebottleTestCase):
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.data['email'], 'new@example.com')
         self.assertTrue('password' not in response.data)
+        self.assertTrue('jwt_token' in response.data)
 
         self.user.refresh_from_db()
         self.assertEqual(self.user.email, 'new@example.com')
+
+        old_token_response = self.client.get(
+            self.current_user_url, token=self.user_token
+        )
+        self.assertTrue(old_token_response.status_code, status.HTTP_403_FORBIDDEN)
+
+        new_token_response = self.client.get(
+            self.current_user_url, token='JWT {}'.format(response.data['jwt_token'])
+        )
+        self.assertTrue(new_token_response.status_code, status.HTTP_200_OK)
 
     def test_update_email_unauthenticated(self):
         response = self.client.put(
@@ -459,6 +508,7 @@ class PasswordSetTest(BluebottleTestCase):
         )
         self.user_token = "JWT {0}".format(self.user.get_jwt_token())
 
+        self.current_user_url = reverse('user-current')
         self.set_password_url = reverse('user-set-password')
 
     def test_update_paswword(self):
@@ -469,10 +519,21 @@ class PasswordSetTest(BluebottleTestCase):
         )
 
         self.assertEqual(response.status_code, 200)
+        self.assertTrue('jwt_token' in response.data)
         self.assertTrue('password' not in response.data)
 
         self.user.refresh_from_db()
         self.assertTrue(self.user.check_password('new-password'))
+
+        old_token_response = self.client.get(
+            self.current_user_url, token=self.user_token
+        )
+        self.assertTrue(old_token_response.status_code, status.HTTP_403_FORBIDDEN)
+
+        new_token_response = self.client.get(
+            self.current_user_url, token='JWT {}'.format(response.data['jwt_token'])
+        )
+        self.assertTrue(new_token_response.status_code, status.HTTP_200_OK)
 
     def test_update_password_unauthenticated(self):
         response = self.client.put(
@@ -553,7 +614,7 @@ class UserLogoutTest(BluebottleTestCase):
 
     def test_logout_no_token(self):
         response = self.client.post(self.logout_url)
-        self.assertEqual(response.status_code, 204)
+        self.assertEqual(response.status_code, 401)
 
     def test_logout_wrong_token(self):
         response = self.client.post(self.logout_url, token=self.user_token + '1234')

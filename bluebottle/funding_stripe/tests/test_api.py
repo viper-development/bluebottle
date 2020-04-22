@@ -320,10 +320,11 @@ class ConnectAccountDetailsTestCase(BluebottleTestCase):
                             self.account_list_url, data=json.dumps(self.data), user=self.user
                         )
                         create_account.assert_called_with(
+                            business_profile={'url': 'https://testserver', 'mcc': '8398'},
                             business_type='individual',
                             country=self.data['data']['attributes']['country'],
                             metadata={'tenant_name': 'test', 'tenant_domain': 'testserver', 'member_id': self.user.pk},
-                            requested_capabilities=['legacy_payments'],
+                            requested_capabilities=['transfers'],
                             settings={
                                 'card_payments': {
                                     'statement_descriptor_prefix': u'tst--'
@@ -358,7 +359,7 @@ class ConnectAccountDetailsTestCase(BluebottleTestCase):
         )
         self.assertEqual(
             data['data']['meta']['required-fields'],
-            [u'country', u'external_accounts', u'individual.first_name']
+            [u'country', u'external_accounts', u'individual.dob']
         )
         self.assertEqual(
             data['data']['attributes']['account']['individual']['first_name'],
@@ -401,7 +402,7 @@ class ConnectAccountDetailsTestCase(BluebottleTestCase):
         )
         self.assertEqual(
             data['data']['meta']['required-fields'],
-            [u'country', u'external_accounts', u'individual.first_name']
+            [u'country', u'external_accounts', u'individual.dob']
         )
         self.assertEqual(
             data['data']['attributes']['account']['individual']['first_name'],
@@ -469,6 +470,19 @@ class ConnectAccountDetailsTestCase(BluebottleTestCase):
 
         self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
 
+    def test_get_bank_accounts_no_user(self):
+        response = self.client.get(
+            self.account_list_url
+        )
+        self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
+
+    def test_get_bank_accounts_other_user(self):
+        response = self.client.get(
+            self.account_list_url,
+            user=BlueBottleUserFactory.create()
+        )
+        self.assertEqual(response.status_code, status.HTTP_405_METHOD_NOT_ALLOWED)
+
 
 class ExternalAccountsTestCase(BluebottleTestCase):
     def setUp(self):
@@ -506,6 +520,9 @@ class ExternalAccountsTestCase(BluebottleTestCase):
         self.connect_account.update({
             'country': country,
             'external_accounts': external_accounts,
+            'requirements': bunch.bunchify({
+                'eventually_due': ['document_type']
+            })
         })
 
         self.country_spec = stripe.CountrySpec(country)
@@ -529,6 +546,23 @@ class ExternalAccountsTestCase(BluebottleTestCase):
 
         self.url = reverse('connect-account-details', args=(self.check.id, ))
         self.external_account_url = reverse('stripe-external-account-list')
+        self.external_account_detail_url = reverse(
+            'stripe-external-account-details',
+            args=(self.external_account.pk, )
+        )
+
+    def test_get_accounts_no_user(self):
+        response = self.client.get(
+            self.external_account_url
+        )
+        self.assertEqual(response.status_code, status.HTTP_405_METHOD_NOT_ALLOWED)
+
+    def test_get_accounts_other_user(self):
+        response = self.client.get(
+            self.external_account_url,
+            user=BlueBottleUserFactory.create()
+        )
+        self.assertEqual(response.status_code, status.HTTP_405_METHOD_NOT_ALLOWED)
 
     def test_get(self):
         with mock.patch(
@@ -644,3 +678,27 @@ class ExternalAccountsTestCase(BluebottleTestCase):
         self.assertEqual(
             external_account['last4'], self.connect_external_account.last4
         )
+
+    def test_get_external_account_detail(self):
+        response = self.client.get(
+            self.external_account_detail_url,
+            user=self.external_account.owner
+        )
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(
+            response.json()['data']['attributes']['account-id'],
+            'some-external-account-id'
+        )
+
+    def test_get_external_account_anonymous(self):
+        response = self.client.get(
+            self.external_account_detail_url
+        )
+        self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
+
+    def test_get_external_account_other_user(self):
+        response = self.client.get(
+            self.external_account_detail_url,
+            user=BlueBottleUserFactory.create()
+        )
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)

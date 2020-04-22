@@ -1,8 +1,11 @@
+import re
 import json
 from operator import attrgetter
 
 from django.utils.functional import cached_property
 from djmoney.money import Money
+
+from django_extensions.db.fields.json import JSONField
 
 from bluebottle.funding.exception import PaymentException
 from django.conf import settings
@@ -278,6 +281,7 @@ class StripePayoutAccount(PayoutAccount):
     account_id = models.CharField(max_length=40, help_text=_("Starts with 'acct_...'"))
     country = models.CharField(max_length=2)
     document_type = models.CharField(max_length=20, blank=True)
+    eventually_due = JSONField(null=True, default=[])
 
     transitions = TransitionManager(StripePayoutAccountTransitions, 'status')
 
@@ -297,9 +301,9 @@ class StripePayoutAccount(PayoutAccount):
 
         if self.account_id:
             fields += [
-                field for field in self.country_spec['additional'] + self.country_spec['minimum'] if
+                field for field in self.eventually_due if
                 field not in [
-                    'business_type', 'external_account', 'tos_acceptance.date',
+                    'external_account', 'tos_acceptance.date',
                     'tos_acceptance.ip', 'business_profile.url', 'business_profile.mcc',
                 ]
             ]
@@ -331,6 +335,15 @@ class StripePayoutAccount(PayoutAccount):
                             yield 'individual.dob'
                     except AttributeError:
                         yield 'individual.dob'
+                elif field == 'individual.verification.additional_document':
+                    try:
+                        if attrgetter(
+                            'individual.verification.additional_document.front'
+                        )(self.account) in (None, ''):
+                            yield field
+                    except AttributeError:
+                        yield field
+
                 else:
                     try:
                         if attrgetter(field)(self.account) in (None, ''):
@@ -338,8 +351,11 @@ class StripePayoutAccount(PayoutAccount):
                     except AttributeError:
                         yield field
             else:
-                value = attrgetter(field)(self)
-                if value in (None, ''):
+                try:
+                    value = attrgetter(field)(self)
+                    if value in (None, ''):
+                        yield field
+                except AttributeError:
                     yield field
 
         if not self.account.external_accounts.total_count > 0:
@@ -390,11 +406,11 @@ class StripePayoutAccount(PayoutAccount):
                     # Submit to transition to pending
                     self.transitions.submit()
             else:
-                if self.status != PayoutAccountTransitions.values.rejected:
-                    self.transitions.reject()
+                if self.status != PayoutAccountTransitions.values.incomplete:
+                    self.transitions.set_incomplete()
         else:
-            if self.status != PayoutAccountTransitions.values.rejected:
-                self.transitions.reject()
+            if self.status != PayoutAccountTransitions.values.incomplete:
+                self.transitions.set_incomplete()
 
         externals = self.account['external_accounts']['data']
         for external in externals:
@@ -416,19 +432,37 @@ class StripePayoutAccount(PayoutAccount):
         return self._account
 
     def save(self, *args, **kwargs):
+
         if self.account_id and not self.country == self.account.country:
             self.account_id = None
 
         if not self.account_id:
+            if len(self.owner.activities.all()):
+                url = self.owner.activities.first().get_absolute_url()
+            else:
+                url = 'https://{}'.format(connection.tenant.domain_url)
+
+            if 'localhost' in url:
+                url = re.sub('localhost', 't.goodup.com', url)
+
             self._account = stripe.Account.create(
                 country=self.country,
                 type='custom',
                 settings=self.account_settings,
                 business_type='individual',
-                requested_capabilities=["legacy_payments"],
+                requested_capabilities=["transfers"],
+                business_profile={
+                    'url': url,
+                    'mcc': '8398'
+                },
                 metadata=self.metadata
             )
             self.account_id = self._account.id
+
+        if self.account_id:
+            for field in self.account.requirements.eventually_due:
+                if field not in self.eventually_due:
+                    self.eventually_due.append(field)
 
         super(StripePayoutAccount, self).save(*args, **kwargs)
 
