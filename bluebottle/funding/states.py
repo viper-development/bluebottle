@@ -24,12 +24,12 @@ class FundingStateMachine(ActivityStateMachine):
     model = Funding
 
     partially_funded = State(
-        _('partially funded'),
+        _('Partially funded'),
         'partially_funded',
         _("The campaign has ended and received donations but didn't reached the target.")
     )
     refunded = State(
-        _('refunded'),
+        _('Refunded'),
         'refunded',
         _("The campaign has ended and all donations have been refunded.")
     )
@@ -238,12 +238,12 @@ class FundingStateMachine(ActivityStateMachine):
 class DonationStateMachine(ContributionStateMachine):
     model = Donation
     refunded = State(
-        _('refunded'),
+        _('Refunded'),
         'refunded',
         _("The contribution was refunded.")
     )
     activity_refunded = State(
-        _('activity refunded'),
+        _('Activity refunded'),
         'activity_refunded',
         _("The contribution was refunded because the activity refunded.")
     )
@@ -314,32 +314,32 @@ class DonationStateMachine(ContributionStateMachine):
 
 class BasePaymentStateMachine(ModelStateMachine):
     new = State(
-        _('new'),
+        _('New'),
         'new',
         _("Payment was started.")
     )
     pending = State(
-        _('pending'),
+        _('Pending'),
         'pending',
         _("Payment is authorised and will probably succeed shortly.")
     )
     succeeded = State(
-        _('succeeded'),
+        _('Succeeded'),
         'succeeded',
         _("Payment is successful.")
     )
     failed = State(
-        _('failed'),
+        _('Failed'),
         'failed',
         _("Payment failed.")
     )
     refunded = State(
-        _('refunded'),
+        _('Refunded'),
         'refunded',
         _("Payment was refunded.")
     )
     refund_requested = State(
-        _('refund requested'),
+        _('Refund requested'),
         'refund_requested',
         _("Platform requested the payment to be refunded. Waiting for payment provider the confirm the refund")
     )
@@ -427,32 +427,32 @@ class PayoutStateMachine(ModelStateMachine):
     model = Payout
 
     new = State(
-        _('new'),
+        _('New'),
         'new',
         _("Payout has been created")
     )
     approved = State(
-        _('approved'),
+        _('Approved'),
         'approved',
         _("Payout has been approved and send to the payout app.")
     )
     scheduled = State(
-        _('scheduled'),
+        _('Scheduled'),
         'scheduled',
         _("Payout has been received by the payout app.")
     )
     started = State(
-        _('started'),
+        _('Started'),
         'started',
         _("Payout was started.")
     )
     succeeded = State(
-        _('succeeded'),
+        _('Succeeded'),
         'succeeded',
         _("Payout was completed successfully.")
     )
     failed = State(
-        _('failed'),
+        _('Failed'),
         'failed',
         _("Payout failed.")
     )
@@ -522,27 +522,27 @@ class PayoutStateMachine(ModelStateMachine):
 class PayoutAccountStateMachine(ModelStateMachine):
 
     new = State(
-        _('new'),
+        _('New'),
         'new',
         _("Payout account was created.")
     )
     pending = State(
-        _('pending'),
+        _('Pending'),
         'pending',
         _("Payout account is pending verification.")
     )
     verified = State(
-        _('verified'),
+        _('Verified'),
         'verified',
         _("Payout account has been verified.")
     )
     rejected = State(
-        _('rejected'),
+        _('Rejected'),
         'rejected',
         _("Payout account was rejected.")
     )
     incomplete = State(
-        _('incomplete'),
+        _('Incomplete'),
         'incomplete',
         _("Payout account is missing information or documents.")
     )
