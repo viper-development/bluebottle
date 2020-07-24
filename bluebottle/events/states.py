@@ -258,22 +258,22 @@ class ParticipantStateMachine(ContributionStateMachine):
     withdrawn = State(
         _('Withdrawn'),
         'withdrawn',
-        _("The participant withdrew and will no longer attend the activity")
+        _("The person withdrew and will no longer attend the event.")
     )
     rejected = State(
         _('Rejected'),
         'rejected',
-        _("The participant was rejected and will not attend.")
+        _("The person was rejected and will not attend the event.")
     )
     no_show = State(
         _('No show'),
         'no_show',
-        _("The participant didn't attend the event and was marked absent.")
+        _("The person didn't attend the event and was marked absent.")
     )
     new = State(
         _('Joined'),
         'new',
-        _("The participant signed up for the event.")
+        _("The person is attending the event.")
     )
 
     def is_user(self, user):
@@ -310,7 +310,7 @@ class ParticipantStateMachine(ContributionStateMachine):
         EmptyState(),
         ContributionStateMachine.new,
         name=_("Join"),
-        description=_("Participant is created. User signs up for the activity."),
+        description=_("The person will be attending the event."),
         effects=[
             TransitionEffect(
                 'succeed',
@@ -335,7 +335,7 @@ class ParticipantStateMachine(ContributionStateMachine):
         ContributionStateMachine.new,
         withdrawn,
         name=_('Withdraw'),
-        description=_("Participant withdraws from the activity."),
+        description=_("The person will voluntarily cease to attend the event."),
         automatic=False,
         permission=is_user,
         effects=[
@@ -347,7 +347,7 @@ class ParticipantStateMachine(ContributionStateMachine):
         withdrawn,
         ContributionStateMachine.new,
         name=_('Join again'),
-        description=_("Participant signs up for the activity again, after previously withdrawing."),
+        description=_("The person will be attending the event again."),
         automatic=False,
         permission=is_user,
         effects=[
@@ -363,7 +363,7 @@ class ParticipantStateMachine(ContributionStateMachine):
         rejected,
         automatic=False,
         name=_('Reject'),
-        description=_("Participant is rejected."),
+        description=_("Reject the person if they are not welcome. The person will no longer be attending the event."),
         effects=[
             RelatedTransitionEffect('activity', 'reopen'),
             NotificationEffect(ParticipantRejectedMessage),
@@ -375,8 +375,8 @@ class ParticipantStateMachine(ContributionStateMachine):
     accept = Transition(
         rejected,
         ContributionStateMachine.new,
-        name=_('Accept'),
-        description=_("Accept a participant after previously being rejected."),
+        name=_('Admit'),
+        description=_("Admit the person back after previously being rejected. The person will be attending the event again."),
         automatic=False,
         effects=[
             TransitionEffect('succeed', conditions=[event_is_finished]),
@@ -391,7 +391,7 @@ class ParticipantStateMachine(ContributionStateMachine):
         ContributionStateMachine.succeeded,
         no_show,
         name=_('Mark absent'),
-        description=_("The participant didn't show up at the activity and is marked absent."),
+        description=_("The person didn't show up at the event. Their contribution will no longer be counted."),
         automatic=False,
         permission=is_activity_owner,
         effects=[
@@ -407,7 +407,7 @@ class ParticipantStateMachine(ContributionStateMachine):
         no_show,
         ContributionStateMachine.succeeded,
         name=_('Mark present'),
-        description=_("The participant showed up, after previously marked absent."),
+        description=_("The person did show up, after being previously marked absent. Their contribution will be counted."),
         automatic=False,
         permission=is_activity_owner,
         effects=[
@@ -424,7 +424,7 @@ class ParticipantStateMachine(ContributionStateMachine):
         ContributionStateMachine.new,
         ContributionStateMachine.succeeded,
         name=_('Succeed'),
-        description=_("The participant successfully took part in the activity."),
+        description=_("The person is confirmed at the event. Their contribution will be counted."),
         effects=[
             SetTimeSpent,
             RelatedTransitionEffect(
@@ -437,6 +437,6 @@ class ParticipantStateMachine(ContributionStateMachine):
         ContributionStateMachine.succeeded,
         ContributionStateMachine.new,
         name=_('Reset'),
-        description=_("The participant is reset to new after being successful."),
+        description=_("The event is reopened and the person will be joining again. Their contribution will no longer be counted."),
         effects=[ResetTimeSpent]
     )
