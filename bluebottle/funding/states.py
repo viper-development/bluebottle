@@ -240,12 +240,12 @@ class DonationStateMachine(ContributionStateMachine):
     refunded = State(
         _('Refunded'),
         'refunded',
-        _("The contribution was refunded.")
+        _("The donation has been refunded.")
     )
     activity_refunded = State(
-        _('Activity refunded'),
+        _('Refunded campaign'),
         'activity_refunded',
-        _("The contribution was refunded because the activity refunded.")
+        _("The donation has been refunded as part of a refunded campaign.")
     )
 
     def is_successful(self):
@@ -259,7 +259,7 @@ class DonationStateMachine(ContributionStateMachine):
         ],
         ContributionStateMachine.succeeded,
         name=_('Succeed'),
-        description=_("The donation has been completed"),
+        description=_("The donation has been completed."),
         automatic=True,
         effects=[
             NotificationEffect(DonationSuccessActivityManagerMessage),
@@ -289,7 +289,7 @@ class DonationStateMachine(ContributionStateMachine):
         ContributionStateMachine.succeeded,
         refunded,
         name=_('Refund'),
-        description=_("Refund this donation."),
+        description=_("The donation will be refunded."),
         automatic=True,
         effects=[
             RelatedTransitionEffect('payment', 'request_refund'),
@@ -302,8 +302,8 @@ class DonationStateMachine(ContributionStateMachine):
     activity_refund = Transition(
         ContributionStateMachine.succeeded,
         activity_refunded,
-        name=_('Activity refund'),
-        description=_("Refund the donation, because the entire activity will be refunded."),
+        name=_('Refund campaign'),
+        description=_("The donation will be refunded, as part of a campaign that will be refunded."),
         automatic=True,
         effects=[
             RelatedTransitionEffect('payment', 'request_refund'),
@@ -336,12 +336,12 @@ class BasePaymentStateMachine(ModelStateMachine):
     refunded = State(
         _('Refunded'),
         'refunded',
-        _("Payment was refunded.")
+        _("Payment has been refunded.")
     )
     refund_requested = State(
         _('Refund requested'),
         'refund_requested',
-        _("Platform requested the payment to be refunded. Waiting for payment provider the confirm the refund")
+        _("Platform manager requested the payment to be refunded. Waiting for payment provider the confirm the refund.")
     )
 
     def donation_not_refunded(self):
@@ -429,7 +429,7 @@ class PayoutStateMachine(ModelStateMachine):
     new = State(
         _('New'),
         'new',
-        _("Payout has been created")
+        _("Payout has been created.")
     )
     approved = State(
         _('Approved'),
@@ -449,7 +449,7 @@ class PayoutStateMachine(ModelStateMachine):
     succeeded = State(
         _('Succeeded'),
         'succeeded',
-        _("Payout was completed successfully.")
+        _("Payout has been completed successfully.")
     )
     failed = State(
         _('Failed'),
@@ -461,7 +461,7 @@ class PayoutStateMachine(ModelStateMachine):
         EmptyState(),
         new,
         name=_("Initiate"),
-        description=_("Create the payout")
+        description=_("Create the payout.")
     )
 
     approve = Transition(
@@ -563,7 +563,7 @@ class PayoutAccountStateMachine(ModelStateMachine):
         EmptyState(),
         new,
         name=_("Initiate"),
-        description=_("Payout account has been created")
+        description=_("Payout account has been created.")
     )
 
     submit = Transition(
@@ -601,7 +601,7 @@ class PayoutAccountStateMachine(ModelStateMachine):
     set_incomplete = Transition(
         [new, pending, rejected, verified],
         incomplete,
-        name=_('Set incomplete'),
+        name=_('Mark incomplete'),
         description=_("Mark the payout account as incomplete. The initiator will have to add more information."),
         automatic=False
     )
