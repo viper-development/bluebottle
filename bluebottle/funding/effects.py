@@ -31,7 +31,7 @@ class DeletePayoutsEffect(Effect):
         self.instance.payouts.all().delete()
 
     def __unicode__(self):
-        return _('Delete all related payouts')
+        return _('Delete all related payouts. A new payout will be created including all current donations.')
 
 
 class UpdateFundingAmountsEffect(Effect):

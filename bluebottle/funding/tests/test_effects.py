@@ -47,7 +47,7 @@ class FundingEffectsTests(BluebottleTestCase):
     def test_delete_payouts_effect(self):
         PayoutFactory.create(activity=self.funding)
         effect = DeletePayoutsEffect(self.funding)
-        self.assertEqual(unicode(effect), 'Delete all related payouts')
+        self.assertEqual(unicode(effect), 'Delete all related payouts. A new payout will be created including all current donations.')
         effect.execute()
         self.assertEqual(self.funding.payouts.count(), 0)
 
