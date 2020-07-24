@@ -5,7 +5,7 @@ from bluebottle.follow.models import follow, unfollow
 
 
 class FollowActivityEffect(Effect):
-    "Follow the activity"
+    "Follow activity"
 
     post_save = True
 
@@ -20,11 +20,11 @@ class FollowActivityEffect(Effect):
         user = self.instance.user
         if not self.instance.user.id:
             user = self.instance.user.full_name
-        return _('Follow {activity} by {user}').format(activity=self.instance.activity, user=user)
+        return _('{user} will receive updates for {activity}.').format(activity=self.instance.activity, user=user)
 
 
 class UnFollowActivityEffect(Effect):
-    "Unfollow the activity"
+    "Unfollow activity"
 
     post_save = True
 
@@ -39,4 +39,4 @@ class UnFollowActivityEffect(Effect):
         user = self.instance.user
         if not self.instance.user.id:
             user = self.instance.user.full_name
-        return _('Unfollow {activity} by {user}').format(activity=self.instance.activity, user=user)
+        return _('{user} will no longer receive updates for {activity}.').format(activity=self.instance.activity, user=user)
