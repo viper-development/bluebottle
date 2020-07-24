@@ -19,7 +19,7 @@ class GeneratePayoutsEffect(Effect):
         Payout.generate(self.instance)
 
     def __unicode__(self):
-        return _('Generate payouts, so that payouts can be approved')
+        return _('Generate payouts, so that the payouts can be approved.')
 
 
 class DeletePayoutsEffect(Effect):
@@ -49,7 +49,7 @@ class UpdateFundingAmountsEffect(Effect):
 class SetDeadlineEffect(Effect):
     post_save = False
     conditions = []
-    title = _('Update amounts')
+    title = _('Update campaign')
 
     def execute(self, **kwargs):
         if not self.instance.deadline:
@@ -78,7 +78,7 @@ class ExecuteRefundEffect(Effect):
         self.instance.refund()
 
     def __unicode__(self):
-        return _('Request refund payment at PSP')
+        return _('Request refund payment for all donations at the payment service provider.')
 
 
 class GenerateDonationWallpostEffect(Effect):

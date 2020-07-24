@@ -40,7 +40,7 @@ class FundingEffectsTests(BluebottleTestCase):
 
     def test_generate_payouts_effect(self):
         effect = GeneratePayoutsEffect(self.funding)
-        self.assertEqual(unicode(effect), 'Generate payouts, so that payouts can be approved')
+        self.assertEqual(unicode(effect), 'Generate payouts, so that the payouts can be approved.')
         effect.execute()
         self.assertEqual(self.funding.payouts.count(), 1)
 
