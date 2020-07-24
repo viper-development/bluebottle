@@ -161,7 +161,8 @@ class EventStateMachine(ActivityStateMachine):
         full,
         ActivityStateMachine.open,
         name=_("Reopen"),
-        description=_("People can join the event again. Triggered when the number of attendees become less than the attendee limit.")
+        description=_("People can join the event again. "
+                      "Triggered when the number of attendees become less than the attendee limit.")
     )
 
     reschedule = Transition(
@@ -376,7 +377,8 @@ class ParticipantStateMachine(ContributionStateMachine):
         rejected,
         ContributionStateMachine.new,
         name=_('Admit'),
-        description=_("Admit the person back after previously being rejected. The person will be attending the event again."),
+        description=_("Admit the person back after previously being rejected. "
+                      "The person will be attending the event again."),
         automatic=False,
         effects=[
             TransitionEffect('succeed', conditions=[event_is_finished]),
@@ -407,7 +409,8 @@ class ParticipantStateMachine(ContributionStateMachine):
         no_show,
         ContributionStateMachine.succeeded,
         name=_('Mark present'),
-        description=_("The person did show up, after being previously marked absent. Their contribution will be counted."),
+        description=_("The person did show up, after being previously marked absent. "
+                      "Their contribution will be counted."),
         automatic=False,
         permission=is_activity_owner,
         effects=[
@@ -437,6 +440,7 @@ class ParticipantStateMachine(ContributionStateMachine):
         ContributionStateMachine.succeeded,
         ContributionStateMachine.new,
         name=_('Reset'),
-        description=_("The event is reopened and the person will be joining again. Their contribution will no longer be counted."),
+        description=_("The event is reopened and the person will be joining again. "
+                      "Their contribution will no longer be counted."),
         effects=[ResetTimeSpent]
     )
