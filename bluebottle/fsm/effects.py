@@ -56,11 +56,11 @@ class Effect(object):
 
 class BaseTransitionEffect(Effect):
     field = 'states'
-    title = _('Change the status')
+    title = _('Status changes')
 
     @property
     def description(self):
-        return 'Change status of {} to {}'.format(
+        return 'The status of {} is set to {}'.format(
             unicode(self.instance), self.transition.target.name
         )
 
