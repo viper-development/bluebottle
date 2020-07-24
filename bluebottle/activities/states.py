@@ -23,37 +23,44 @@ class ActivityStateMachine(ModelStateMachine):
     draft = State(
         _('draft'),
         'draft',
-        _('The activity is created by the user.')
+        _('The activity has been created, but not yet completed. The activity manager is still editing the activity.')
     )
     submitted = State(
         _('submitted'),
         'submitted',
-        _('The activity is complete and needs to be review.')
+        _('The activity is ready to go online once the initiative has been approved.')
     )
     needs_work = State(
         _('needs work'),
         'needs_work',
-        _('The activity has not been approved by the reviewer and needs to be edited.')
+        _('The activity has been submitted but needs adjustments in order to be approved.')
     )
     rejected = State(
         _('rejected'),
         'rejected',
-        _('The activity has been rejected by the reviewer.')
+        _('The activity doesn’t fit the program or the rules of the game. '
+          'The activity won’t show up on the search page in the front end, '
+          'but does count in the reporting. '
+          'The activity cannot be edited by the activity manager.')
     )
     deleted = State(
         _('deleted'),
         'deleted',
-        _('The activity is deleted by the initiator.')
+        _('The activity is not visible in the frontend and does not count in the reporting. '
+          'The activity cannot be edited by the activity manager.')
     )
     cancelled = State(
         _('cancelled'),
         'cancelled',
-        _('The activity has been cancelled.')
+        _('The activity is not executed. '
+          'The activity won’t show up on the search page in the front end, '
+          'but does count in the reporting. '
+          'The activity cannot be edited by the activity manager.')
     )
     open = State(
         _('open'),
         'open',
-        _('The activity is open, and accepting contributions.')
+        _('The activity is accepting new contributions.')
     )
     succeeded = State(
         _('succeeded'),
@@ -103,7 +110,7 @@ class ActivityStateMachine(ModelStateMachine):
             cancelled
         ],
         submitted,
-        description=_('Submit the activity for approval.'),
+        description=_('The activity will be submitted for review.'),
         automatic=False,
         name=_('Submit'),
         conditions=[is_complete, is_valid, initiative_is_submitted],
@@ -135,7 +142,10 @@ class ActivityStateMachine(ModelStateMachine):
         ],
         rejected,
         name=_('Reject'),
-        description=_('Reject the activity. This will make sure the activity is no longer visible.'),
+        description=_('Reject in case this activity doesn’t fit your program or the rules of the game. '
+                      'The activity owner will not be able to edit the activity and it won’t show up on '
+                      'the search page in the front end. The activity will still be available in the '
+                      'back office and appear in your reporting.'),
         automatic=False,
         permission=is_staff,
         effects=[
@@ -151,7 +161,10 @@ class ActivityStateMachine(ModelStateMachine):
         ],
         cancelled,
         name=_('Cancel'),
-        description=_('Cancel the activity.'),
+        description=_('Cancel if the activity will not be executed. '
+                      'The activity manager will not be able to edit '
+                      'the activity and it won’t show up on the search page in the front end. '
+                      'The activity will still be available in the back office and appear in your reporting.'),
         automatic=False,
         effects=[
             RelatedTransitionEffect('organizer', 'fail')
@@ -166,7 +179,7 @@ class ActivityStateMachine(ModelStateMachine):
         ],
         draft,
         name=_('Restore'),
-        description=_('Restore the activity. The will mark the activity as draft again.'),
+        description=_('The status of the activity is set to "Draft". The activity owner can edit the activity again.'),
         automatic=False,
         permission=is_staff,
         effects=[
@@ -180,7 +193,8 @@ class ActivityStateMachine(ModelStateMachine):
         name=_('Delete'),
         automatic=False,
         permission=is_owner,
-        description=_('Delete the activity and remove it from the platform'),
+        description=_('Delete the activity if you don’t want it to appear in your reporting. '
+                      'The activity will still be available in the back office.'),
         effects=[
             RelatedTransitionEffect('organizer', 'fail')
         ]
