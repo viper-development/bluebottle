@@ -21,22 +21,22 @@ class CreateOrganizer(Effect):
 
 class ActivityStateMachine(ModelStateMachine):
     draft = State(
-        _('draft'),
+        _('Draft'),
         'draft',
         _('The activity has been created, but not yet completed. The activity manager is still editing the activity.')
     )
     submitted = State(
-        _('submitted'),
+        _('Submitted'),
         'submitted',
         _('The activity is ready to go online once the initiative has been approved.')
     )
     needs_work = State(
-        _('needs work'),
+        _('Needs work'),
         'needs_work',
         _('The activity has been submitted but needs adjustments in order to be approved.')
     )
     rejected = State(
-        _('rejected'),
+        _('Rejected'),
         'rejected',
         _('The activity doesn’t fit the program or the rules of the game. '
           'The activity won’t show up on the search page in the front end, '
@@ -44,13 +44,13 @@ class ActivityStateMachine(ModelStateMachine):
           'The activity cannot be edited by the activity manager.')
     )
     deleted = State(
-        _('deleted'),
+        _('Deleted'),
         'deleted',
         _('The activity is not visible in the frontend and does not count in the reporting. '
           'The activity cannot be edited by the activity manager.')
     )
     cancelled = State(
-        _('cancelled'),
+        _('Cancelled'),
         'cancelled',
         _('The activity is not executed. '
           'The activity won’t show up on the search page in the front end, '
@@ -58,12 +58,12 @@ class ActivityStateMachine(ModelStateMachine):
           'The activity cannot be edited by the activity manager.')
     )
     open = State(
-        _('open'),
+        _('Open'),
         'open',
         _('The activity is accepting new contributions.')
     )
     succeeded = State(
-        _('succeeded'),
+        _('Succeeded'),
         'succeeded',
         _('The activity has ended successfully.')
     )
@@ -210,17 +210,17 @@ class ActivityStateMachine(ModelStateMachine):
 
 class ContributionStateMachine(ModelStateMachine):
     new = State(
-        _('new'),
+        _('New'),
         'new',
         _("The user started a contribution")
     )
     succeeded = State(
-        _('succeeded'),
+        _('Succeeded'),
         'succeeded',
         _("The contribution was successful.")
     )
     failed = State(
-        _('failed'),
+        _('Failed'),
         'failed',
         _("The contribution failed.")
     )
@@ -231,13 +231,13 @@ class ContributionStateMachine(ModelStateMachine):
     initiate = Transition(
         EmptyState(),
         new,
-        name=_('initiate'),
+        name=_('Initiate'),
         description=_('The contribution was created.')
     )
     fail = Transition(
         (new, succeeded, failed, ),
         failed,
-        name=_('fail'),
+        name=_('Fail'),
         description=_("The contribution failed. It will not be visible in reports."),
     )
 
@@ -251,13 +251,13 @@ class OrganizerStateMachine(ContributionStateMachine):
             ContributionStateMachine.failed
         ],
         ContributionStateMachine.succeeded,
-        name=_('succeed'),
+        name=_('Succeed'),
         description=_('The organizer was successful in setting up the activity.')
     )
     fail = Transition(
         AllStates(),
         ContributionStateMachine.failed,
-        name=_('fail'),
+        name=_('Fail'),
         description=_('The organizer failed to set up the activity.')
     )
     reset = Transition(
@@ -266,6 +266,6 @@ class OrganizerStateMachine(ContributionStateMachine):
             ContributionStateMachine.failed
         ],
         ContributionStateMachine.new,
-        name=_('reset'),
+        name=_('Reset'),
         description=_('The organizer is still busy setting up the activity.')
     )

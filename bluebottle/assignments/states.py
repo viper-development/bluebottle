@@ -17,17 +17,17 @@ class AssignmentStateMachine(ActivityStateMachine):
     model = Assignment
 
     running = State(
-        _('running'),
+        _('Running'),
         'running',
         _('The task is taking place and people can’t apply any more.')
     )
     full = State(
-        _('full'),
+        _('Full'),
         'full',
         _('The number of people needed is reached and people can’t apply any more.')
     )
     submitted = State(
-        _('submitted'),
+        _('Submitted'),
         'submitted',
         _('The task is ready to go online once the initiative has been approved.')
     )
@@ -175,27 +175,27 @@ class ApplicantStateMachine(ContributionStateMachine):
     model = Applicant
 
     accepted = State(
-        _('accepted'),
+        _('Accepted'),
         'accepted',
         _('The applicant was accepted and will join the activity.')
     )
     rejected = State(
-        _('rejected'),
+        _('Rejected'),
         'rejected',
         _("The applicant was rejected and will not join the activity.")
     )
     withdrawn = State(
-        _('withdrawn'),
+        _('Withdrawn'),
         'withdrawn',
         _('The applicant withdrew and will no longer join the activity.')
     )
     no_show = State(
-        _('no show'),
+        _('No show'),
         'no_show',
         _('The applicant did not contribute to the activity.')
     )
     active = State(
-        _('active'),
+        _('Active'),
         'active',
         _('The applicant is currently working on the activity.')
     )
