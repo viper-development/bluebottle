@@ -27,7 +27,7 @@ class EventStateMachine(ActivityStateMachine):
     submitted = State(
         _('submitted'),
         'submitted',
-        _('The activity is ready to go online once the initiative has been approved.')
+        _('The event is ready to go online once the initiative has been approved.')
     )
 
     def is_full(self):
@@ -58,8 +58,8 @@ class EventStateMachine(ActivityStateMachine):
         """there are no participants"""
         return len(self.instance.participants) == 0
 
-    full = State(_('full'), 'full', _('The activity is full, users can no longer sign up'))
-    running = State(_('running'), 'running', _('The activity is currently running'))
+    full = State(_('full'), 'full', _('The attendee limit is reached and people can’t join any more.'))
+    running = State(_('running'), 'running', _('The event is taking place and people can’t join any more.'))
 
     submit = Transition(
         [
@@ -68,7 +68,7 @@ class EventStateMachine(ActivityStateMachine):
             ActivityStateMachine.cancelled
         ],
         submitted,
-        description=_('Submit the activity for approval.'),
+        description=_('The event will be submitted for review.'),
         automatic=False,
         name=_('Submit'),
         conditions=[
@@ -107,7 +107,7 @@ class EventStateMachine(ActivityStateMachine):
         ActivityStateMachine.open,
         name=_('Approve'),
         automatic=True,
-        description=_("Approve the event. Users can start signing up to it."),
+        description=_("The event will be visible in the frontend and people can join the event."),
         effects=[
             RelatedTransitionEffect('organizer', 'succeed'),
             TransitionEffect(
@@ -136,7 +136,10 @@ class EventStateMachine(ActivityStateMachine):
         ],
         ActivityStateMachine.cancelled,
         name=_('Cancel'),
-        description=_('Cancel the event.'),
+        description=_('Cancel if the event will not be executed. '
+                      'The activity manager will not be able to edit the event and '
+                      'it won’t show up on the search page in the front end. '
+                      'The event will still be available in the back office and appear in your reporting.'),
         automatic=False,
         effects=[
             RelatedTransitionEffect('organizer', 'fail'),
@@ -151,14 +154,14 @@ class EventStateMachine(ActivityStateMachine):
         ],
         full,
         name=_("Lock"),
-        description=_("Set the event to full because capacity is reached.")
+        description=_("People can no longer join the event. Triggered when the attendee limit is reached.")
     )
 
     reopen = Transition(
         full,
         ActivityStateMachine.open,
         name=_("Reopen"),
-        description=_("Set the event to open, because there are spots available again.")
+        description=_("People can join the event again. Triggered when the number of attendees become less than the attendee limit.")
     )
 
     reschedule = Transition(
@@ -169,7 +172,7 @@ class EventStateMachine(ActivityStateMachine):
         ],
         ActivityStateMachine.open,
         name=_("Reschedule"),
-        description=_("Set the event to open again, because the date has changed."),
+        description=_("People can join the event again, because the date has changed."),
         effects=[
             RelatedTransitionEffect('participants', 'reset')
         ]
@@ -182,7 +185,7 @@ class EventStateMachine(ActivityStateMachine):
         ],
         running,
         name=_("Start"),
-        description=_("Start the event.")
+        description=_("Start the event. Triggered when the start time passes.")
     )
 
     expire = Transition(
@@ -193,7 +196,7 @@ class EventStateMachine(ActivityStateMachine):
         ],
         ActivityStateMachine.cancelled,
         name=_("Expire"),
-        description=_("Event expired. No one signed-up before the start of the event.")
+        description=_("The event didn’t have any attendees before the start time and is cancelled.")
     )
 
     succeed = Transition(
@@ -206,7 +209,7 @@ class EventStateMachine(ActivityStateMachine):
         ],
         ActivityStateMachine.succeeded,
         name=_("Succeed"),
-        description=_("The event was successfully completed."),
+        description=_("The event ends and the contributions are counted. Triggered when the event end time passes."),
         effects=[
             NotificationEffect(EventSucceededOwnerMessage),
             RelatedTransitionEffect('participants', 'succeed')
@@ -221,7 +224,10 @@ class EventStateMachine(ActivityStateMachine):
         ],
         ActivityStateMachine.rejected,
         name=_('Reject'),
-        description=_('Reject the activity. This will make sure the initiative is no longer visible'),
+        description=_('Reject in case this event doesn’t fit your program or the rules of the game. '
+                      'The activity owner will not be able to edit the event and '
+                      'it won’t show up on the search page in the front end. '
+                      'The event will still be available in the back office and appear in your reporting.'),
         automatic=False,
         permission=ActivityStateMachine.is_staff,
         effects=[
@@ -238,7 +244,7 @@ class EventStateMachine(ActivityStateMachine):
         ],
         ActivityStateMachine.draft,
         name=_("Restore"),
-        description=_("Restore a cancelled, rejected or deleted event."),
+        description=_("The status of the event is set to 'Draft'. The activity owner can edit the event again."),
         effects=[
             RelatedTransitionEffect('participants', 'reset'),
             RelatedTransitionEffect('organizer', 'reset')
