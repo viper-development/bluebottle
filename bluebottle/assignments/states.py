@@ -177,27 +177,27 @@ class ApplicantStateMachine(ContributionStateMachine):
     accepted = State(
         _('Accepted'),
         'accepted',
-        _('The applicant was accepted and will join the activity.')
+        _('The person was accepted and will participate in the task.')
     )
     rejected = State(
         _('Rejected'),
         'rejected',
-        _("The applicant was rejected and will not join the activity.")
+        _("The person was rejected and will not participate in the task.")
     )
     withdrawn = State(
         _('Withdrawn'),
         'withdrawn',
-        _('The applicant withdrew and will no longer join the activity.')
+        _('The person withdrew and will not participate in the task.')
     )
     no_show = State(
         _('No show'),
         'no_show',
-        _('The applicant did not contribute to the activity.')
+        _('The person did not participate in the task. Their contribution will no longer be counted.')
     )
     active = State(
         _('Active'),
         'active',
-        _('The applicant is currently working on the activity.')
+        _('The person is currently participating in the task.')
     )
 
     def has_time_spent(self):
@@ -253,8 +253,8 @@ class ApplicantStateMachine(ContributionStateMachine):
     initiate = Transition(
         EmptyState(),
         ContributionStateMachine.new,
-        name=_('Initiate'),
-        description=_("User applied to join the task."),
+        name=_('Apply'),
+        description=_("The person wants to participate in the task."),
         effects=[
             NotificationEffect(AssignmentApplicationMessage),
             FollowActivityEffect
@@ -268,7 +268,7 @@ class ApplicantStateMachine(ContributionStateMachine):
         ],
         accepted,
         name=_('Accept'),
-        description=_("Applicant was accepted."),
+        description=_("The person will be participating in the task."),
         automatic=False,
         permission=can_accept_applicants,
         effects=[
@@ -290,7 +290,7 @@ class ApplicantStateMachine(ContributionStateMachine):
         ],
         rejected,
         name=_('Reject'),
-        description=_("Applicant was rejected."),
+        description=_("The person will not be participating in the task."),
         automatic=False,
         permission=can_accept_applicants,
         effects=[
@@ -307,7 +307,7 @@ class ApplicantStateMachine(ContributionStateMachine):
         ],
         withdrawn,
         name=_('Withdraw'),
-        description=_("Applicant withdrew and will no longer join the activity."),
+        description=_("The person will voluntarily cease to participate in the task."),
         automatic=False,
         permission=is_user,
         effects=[
@@ -322,7 +322,7 @@ class ApplicantStateMachine(ContributionStateMachine):
         ],
         ContributionStateMachine.new,
         name=_('Reapply'),
-        description=_("Applicant re-applies for the task after previously withdrawing."),
+        description=_("The person wants to participate in the task again."),
         automatic=False,
         conditions=[assignment_is_open],
         permission=ContributionStateMachine.is_user,
@@ -337,8 +337,8 @@ class ApplicantStateMachine(ContributionStateMachine):
             # ContributionStateMachine.new
         ],
         active,
-        name=_('Activate'),
-        description=_("Applicant starts to execute the task."),
+        name=_('Start'),
+        description=_("The person starts with the task."),
         automatic=True
     )
 
@@ -350,7 +350,7 @@ class ApplicantStateMachine(ContributionStateMachine):
         ],
         ContributionStateMachine.succeeded,
         name=_('Succeed'),
-        description=_("Applicant successfully completed the task."),
+        description=_("The person has been participating in the task. Their contribution will be counted."),
         automatic=True,
         effects=[
             SetTimeSpent
@@ -361,7 +361,7 @@ class ApplicantStateMachine(ContributionStateMachine):
         ContributionStateMachine.succeeded,
         no_show,
         name=_('Mark absent'),
-        description=_("Applicant did not contribute to the task and is marked absent."),
+        description=_("The person didn't participate in the task. Their contribution will no longer be counted."),
         automatic=False,
         permission=is_activity_owner,
         effects=[
@@ -377,7 +377,8 @@ class ApplicantStateMachine(ContributionStateMachine):
         no_show,
         ContributionStateMachine.succeeded,
         name=_('Mark present'),
-        description=_("Applicant did contribute to the task, after first been marked absent."),
+        description=_("The person did participate, after being previously marked absent. "
+                      "Their contribution will be counted."),
         automatic=False,
         permission=is_activity_owner,
         effects=[
