@@ -210,19 +210,19 @@ class ActivityStateMachine(ModelStateMachine):
 
 class ContributionStateMachine(ModelStateMachine):
     new = State(
-        _('New'),
+        _('Applied'),
         'new',
-        _("The user started a contribution")
+        _("The person applied to the task and is awaiting their review.")
     )
     succeeded = State(
         _('Succeeded'),
         'succeeded',
-        _("The contribution was successful.")
+        _("The contribution is counted.")
     )
     failed = State(
         _('Failed'),
         'failed',
-        _("The contribution failed.")
+        _("The contribution is not counted.")
     )
 
     def is_user(self, user):
@@ -238,7 +238,7 @@ class ContributionStateMachine(ModelStateMachine):
         (new, succeeded, failed, ),
         failed,
         name=_('Fail'),
-        description=_("The contribution failed. It will not be visible in reports."),
+        description=_("The contribution will no longer be counted."),
     )
 
 
@@ -252,13 +252,13 @@ class OrganizerStateMachine(ContributionStateMachine):
         ],
         ContributionStateMachine.succeeded,
         name=_('Succeed'),
-        description=_('The organizer was successful in setting up the activity.')
+        description=_('The activity succeeded. The contribution will be counted.')
     )
     fail = Transition(
         AllStates(),
         ContributionStateMachine.failed,
         name=_('Fail'),
-        description=_('The organizer failed to set up the activity.')
+        description=_('The activity did not succeed. The contribution will no longer be counted.')
     )
     reset = Transition(
         [
@@ -267,5 +267,5 @@ class OrganizerStateMachine(ContributionStateMachine):
         ],
         ContributionStateMachine.new,
         name=_('Reset'),
-        description=_('The organizer is still busy setting up the activity.')
+        description=_('The activity is reopened. The contribution will no longer be counted.')
     )
