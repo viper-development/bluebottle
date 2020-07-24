@@ -25,7 +25,7 @@ from bluebottle.notifications.effects import NotificationEffect
 class EventStateMachine(ActivityStateMachine):
     model = Event
     submitted = State(
-        _('submitted'),
+        _('Submitted'),
         'submitted',
         _('The event is ready to go online once the initiative has been approved.')
     )
@@ -58,8 +58,8 @@ class EventStateMachine(ActivityStateMachine):
         """there are no participants"""
         return len(self.instance.participants) == 0
 
-    full = State(_('full'), 'full', _('The attendee limit is reached and people can’t join any more.'))
-    running = State(_('running'), 'running', _('The event is taking place and people can’t join any more.'))
+    full = State(_('Full'), 'full', _('The attendee limit is reached and people can’t join any more.'))
+    running = State(_('Running'), 'running', _('The event is taking place and people can’t join any more.'))
 
     submit = Transition(
         [
@@ -256,17 +256,17 @@ class ParticipantStateMachine(ContributionStateMachine):
     model = Participant
 
     withdrawn = State(
-        _('withdrawn'),
+        _('Withdrawn'),
         'withdrawn',
         _("The participant withdrew and will no longer attend the activity")
     )
     rejected = State(
-        _('rejected'),
+        _('Rejected'),
         'rejected',
         _("The participant was rejected and will not attend.")
     )
     no_show = State(
-        _('no show'),
+        _('No show'),
         'no_show',
         _("The participant didn't attend the event and was marked absent.")
     )
