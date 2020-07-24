@@ -26,17 +26,17 @@ class FundingStateMachine(ActivityStateMachine):
     partially_funded = State(
         _('partially funded'),
         'partially_funded',
-        _("The activity has ended and received donations but didn't reached the target.")
+        _("The campaign has ended and received donations but didn't reached the target.")
     )
     refunded = State(
         _('refunded'),
         'refunded',
-        _("The activity has ended and all donations have been refunded.")
+        _("The campaign has ended and all donations have been refunded.")
     )
     cancelled = State(
-        _('cancelled'),
+        _('Unsuccessful'),
         'cancelled',
-        _("The activity has ended without any donations.")
+        _("The campaign has ended without any donations.")
     )
 
     def should_finish(self):
@@ -74,7 +74,7 @@ class FundingStateMachine(ActivityStateMachine):
         ActivityStateMachine.submitted,
         automatic=False,
         name=_('Submit'),
-        description=_('Submit the activity for approval'),
+        description=_('The campaign will be submitted for review.'),
         conditions=[
             ActivityStateMachine.is_complete,
             ActivityStateMachine.is_valid,
@@ -90,7 +90,7 @@ class FundingStateMachine(ActivityStateMachine):
         ],
         ActivityStateMachine.open,
         name=_('Approve'),
-        description=_('Approve the campaign so it will go live.'),
+        description=_('The campaign will be visible in the frontend and people can donate.'),
         automatic=False,
         permission=can_approve,
         conditions=[
@@ -115,8 +115,10 @@ class FundingStateMachine(ActivityStateMachine):
             ActivityStateMachine.submitted
         ],
         ActivityStateMachine.needs_work,
-        name=_('Request changes'),
-        description=_("The campaign can't be approved yet. The initiator can edit and submit it again."),
+        name=_('Needs work'),
+        description=_("The status of the campaign will be set to 'Needs work'. "
+                      "The activity manager can edit and resubmit the campaign. "
+                      "Don't forget to inform the activity manager of the necessary adjustments."),
         automatic=False,
         permission=can_approve
     )
@@ -130,7 +132,10 @@ class FundingStateMachine(ActivityStateMachine):
         ],
         ActivityStateMachine.rejected,
         name=_('Reject'),
-        description=_("The campaign will be rejected. The initiator can't edit it anymore."),
+        description=_("Reject in case this campaign doesn’t fit your program or the rules of the game. "
+                      "The activity manager will not be able to edit the campaign and "
+                      "it won’t show up on the search page in the front end. "
+                      "The campaign will still be available in the back office and appear in your reporting."),
         automatic=False,
         conditions=[
             no_donations
@@ -146,7 +151,7 @@ class FundingStateMachine(ActivityStateMachine):
         ActivityStateMachine.open,
         ActivityStateMachine.cancelled,
         name=_('Expire'),
-        description=_("The campaign has ended without any successful donations and will be cancelled."),
+        description=_("The campaign didn’t receive any donations and is unsuccessful."),
         automatic=True,
         conditions=[
             no_donations,
@@ -176,7 +181,7 @@ class FundingStateMachine(ActivityStateMachine):
         [ActivityStateMachine.open, partially_funded],
         ActivityStateMachine.succeeded,
         name=_('Succeed'),
-        description=_("The campaign is successfully completed."),
+        description=_("The campaign ends and received donations can be payed out. Triggered when the deadline passes."),
         automatic=True,
         effects=[
             GeneratePayoutsEffect,
@@ -209,7 +214,7 @@ class FundingStateMachine(ActivityStateMachine):
         ],
         partially_funded,
         name=_('Partial'),
-        description=_("The campaign has ended but the target isn't reached."),
+        description=_("The campaign ends but the target isn't reached."),
         automatic=True,
         effects=[
             GeneratePayoutsEffect,
