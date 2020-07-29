@@ -86,7 +86,7 @@ class ImpactType(SortableTranslatableModel):
 class ImpactGoal(models.Model):
     type = models.ForeignKey(
         ImpactType,
-        verbose_name=_('Impact type'),
+        verbose_name=_('Type of impact'),
         related_name='goals'
     )
     activity = models.ForeignKey(
