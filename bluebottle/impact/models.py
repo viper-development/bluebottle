@@ -22,12 +22,18 @@ class ImpactType(SortableTranslatableModel):
     slug = models.SlugField(_('slug'), max_length=100, unique=True)
     active = models.BooleanField(_('active'), default=True)
 
-    icon = models.CharField(_('icon'), choices=ICONS,
-                            null=True, blank=True, max_length=20)
+    icon = models.CharField(
+        _('icon'),
+        choices=ICONS,
+        null=True,
+        blank=True,
+        max_length=20
+        help_text=_('Select the symbol that best represents your impact type.')
+    )
 
     translations = TranslatedFields(
         name=models.CharField(
-            _('name'),
+            _('Name'),
             max_length=100
         ),
         unit=models.CharField(
@@ -35,28 +41,30 @@ class ImpactType(SortableTranslatableModel):
             blank=True,
             null=True,
             max_length=100,
-            help_text=_('E.g. "liters" or "kg"')
+            help_text=_('E.g. "liters" or "kg". Leave empty if irrelevant.')
 
         ),
         text=models.CharField(
-            _('Text'),
+            _('Title'),
             max_length=100,
-            help_text=_('E.g. "save animals" or "reach people"')
+            help_text=_('E.g. "save animals" or "reduce co2 emissions". '
+                        'The title is displayed when the activity manager has to choose from the list of impact types.')
         ),
         text_with_target=models.CharField(
             _('Text including target'),
             max_length=100,
-            help_text=_('E.g. "save {} animals" or "reach {} people"')
+            help_text=_('Enter the same text as in the Title field and add "{}" where the value and unit should be placed. '
+                        'E.g. "save {} animals" or "reduce co2 emissions by {}".')
         ),
         text_passed=models.CharField(
-            _('Text in passed tense'),
+            _('Title in passed tense'),
             max_length=100,
-            help_text=_('E.g. "animals saved" or "people reached"')
+            help_text=_('E.g. "animals saved" or "co2 emissions reduced".')
         ),
         text_passed_with_value=models.CharField(
             _('Text in passed tense with realized  value'),
             max_length=100,
-            help_text=_('E.g. "{} animals saved" or "{} people reached"')
+            help_text=_('E.g. "{} animals saved" or "{} co2 emissions reduced".')
         ),
     )
 
