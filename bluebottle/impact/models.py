@@ -95,5 +95,5 @@ class ImpactGoal(models.Model):
         related_name='goals'
     )
 
-    target = models.FloatField(_('target'), blank=False, null=True)
-    realized = models.FloatField(_('realized'), blank=False, null=True)
+    target = models.FloatField(_('Impact target'), blank=False, null=True)
+    realized = models.FloatField(_('Impact result'), blank=False, null=True)
