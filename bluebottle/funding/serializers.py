@@ -35,7 +35,8 @@ from bluebottle.funding_pledge.serializers import (
     PledgeBankAccountSerializer, PayoutPledgeBankAccountSerializer
 )
 from bluebottle.funding_stripe.serializers import (
-    ExternalAccountSerializer, ConnectAccountSerializer, PayoutStripeBankSerializer
+    ExternalAccountSerializer, ConnectAccountSerializer,
+    PayoutStripeBankSerializer
 )
 from bluebottle.funding_telesom.serializers import PayoutTelesomBankAccountSerializer, TelesomBankAccountSerializer
 from bluebottle.funding_vitepay.serializers import (

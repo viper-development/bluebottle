@@ -71,7 +71,8 @@ class PaymentIntent(models.Model):
 
 
 class StripePayment(Payment):
-    payment_intent = models.OneToOneField(PaymentIntent, related_name='payment')
+    payment_intent = models.OneToOneField(
+        PaymentIntent, related_name='payment')
 
     provider = 'stripe'
 
@@ -92,7 +93,8 @@ class StripePayment(Payment):
         elif intent.status == 'failed' and self.status != self.states.failed.value:
             self.states.fail()
         elif intent.status == 'succeeded':
-            transfer = stripe.Transfer.retrieve(intent.charges.data[0].transfer)
+            transfer = stripe.Transfer.retrieve(
+                intent.charges.data[0].transfer)
             self.donation.payout_amount = Money(
                 transfer.amount / 100.0, transfer.currency
             )
@@ -146,7 +148,8 @@ class StripeSourcePayment(Payment):
             # Update donation amount if it differs
             if self.source.amount / 100 != self.donation.amount.amount \
                     or self.source.currency != self.donation.amount.currency:
-                self.donation.amount = Money(self.source.amount / 100, self.source.currency)
+                self.donation.amount = Money(
+                    self.source.amount / 100, self.source.currency)
                 self.donation.save()
             if not self.charge_token and self.source.status == 'chargeable':
                 self.do_charge()
@@ -272,7 +275,8 @@ def get_specs(country):
 
 
 class StripePayoutAccount(PayoutAccount):
-    account_id = models.CharField(max_length=40, help_text=_("Starts with 'acct_...'"))
+    account_id = models.CharField(
+        max_length=40, help_text=_("Starts with 'acct_...'"))
     country = models.CharField(max_length=2)
     document_type = models.CharField(max_length=20, blank=True)
     eventually_due = JSONField(null=True, default=[])
@@ -382,7 +386,8 @@ class StripePayoutAccount(PayoutAccount):
         account_details = getattr(self.account, 'individual', None)
         if account_details:
             requirements = account_details.requirements
-            missing = requirements.currently_due + requirements.eventually_due + requirements.past_due
+            missing = requirements.currently_due + \
+                requirements.eventually_due + requirements.past_due
             if getattr(self.account.requirements, 'disabled_reason', None):
                 missing += [self.account.requirements.disabled_reason]
             if getattr(account_details.verification, 'document', None) and \
@@ -466,9 +471,10 @@ class StripePayoutAccount(PayoutAccount):
                 type='custom',
                 settings=self.account_settings,
                 business_type='individual',
-                requested_capabilities=["transfers"],
+                requested_capabilities=["transfers", "card_payments"],
+                individual={'email': self.owner.email},
                 business_profile={
-                    'url': url,
+                    'product_description': 'Crowdfunding campaign for {}',
                     'mcc': '8398'
                 },
                 metadata=self.metadata
@@ -545,7 +551,8 @@ class StripePayoutAccount(PayoutAccount):
 
 
 class ExternalAccount(BankAccount):
-    account_id = models.CharField(max_length=40, help_text=_("Starts with 'ba_...'"))
+    account_id = models.CharField(
+        max_length=40, help_text=_("Starts with 'ba_...'"))
     provider_class = StripePaymentProvider
 
     @cached_property
@@ -557,7 +564,8 @@ class ExternalAccount(BankAccount):
                         self._account = account
 
             if not hasattr(self, '_account'):
-                self._account = self.connect_account.account.external_accounts.retrieve(self.account_id)
+                self._account = self.connect_account.account.external_accounts.retrieve(
+                    self.account_id)
 
             return self._account
 
@@ -596,6 +604,24 @@ class ExternalAccount(BankAccount):
 
     def __unicode__(self):
         return "Stripe external account {}".format(self.account_id)
+
+
+class StripeConnectLink(models.Model):
+    account = models.ForeignKey(StripePayoutAccount)
+    link = models.CharField(max_length=255)
+
+    def save(self, *args, **kwargs):
+        if not self.link:
+            link = stripe.AccountLink.create(
+                account=self.account.account,
+                refresh_url="https://example.com",
+                return_url="https://example.com",
+                type="account_onboarding",
+                collect="currently_due"
+            )
+            self.link = link.url
+
+        super(StripeConnectLink, self).save(*args, **kwargs)
 
 
 from states import *  # noqa

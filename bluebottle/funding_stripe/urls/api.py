@@ -5,7 +5,9 @@ from bluebottle.funding_stripe.views import (
     IntentWebHookView, SourceWebHookView,
     ConnectWebHookView,
     ExternalAccountList, ExternalAccountDetails,
-    StripePaymentList, ConnectAccountDetails, ConnectAccountList)
+    StripePaymentList, ConnectAccountDetails, ConnectAccountList,
+    StripeConnectLinkList
+)
 
 urlpatterns = [
 
@@ -44,4 +46,8 @@ urlpatterns = [
     url(r'^/connect-webhook$',
         ConnectWebHookView.as_view(),
         name='stripe-connect-webhook'),
+    url(r'^/connect-link$',
+        StripeConnectLinkList.as_view(),
+        name='stripe-connect-link'),
+
 ]

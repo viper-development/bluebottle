@@ -17,11 +17,14 @@ from bluebottle.funding.models import Donation
 from bluebottle.funding_stripe.models import (
     StripePayment, StripePayoutAccount, ExternalAccount
 )
-from bluebottle.funding_stripe.models import StripeSourcePayment, PaymentIntent
+from bluebottle.funding_stripe.models import (
+    StripeSourcePayment, PaymentIntent, StripeConnectLink
+)
 from bluebottle.funding_stripe.serializers import (
     StripeSourcePaymentSerializer, PaymentIntentSerializer,
     ConnectAccountSerializer,
-    StripePaymentSerializer
+    StripePaymentSerializer,
+    StripeConnectLinkSerializer
 )
 from bluebottle.funding_stripe.utils import stripe
 from bluebottle.utils.permissions import IsOwner
@@ -141,6 +144,16 @@ class ExternalAccountDetails(JsonApiViewMixin, AutoPrefetchMixin, RetrieveUpdate
         token = serializer.validated_data.pop('token')
         serializer.instance.update(token)
         serializer.save()
+
+
+class StripeConnectLinkList(JsonApiViewMixin, CreateAPIView):
+    serializer_class = StripeConnectLinkSerializer
+    queryset = StripeConnectLink.objects.all()
+
+    permission_classes = []
+    related_permission_classes = {
+        'account': [IsOwner]
+    }
 
 
 class IntentWebHookView(View):

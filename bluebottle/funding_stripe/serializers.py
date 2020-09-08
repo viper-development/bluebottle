@@ -5,7 +5,8 @@ from bluebottle.funding.models import Donation
 from bluebottle.funding.base_serializers import PaymentSerializer, BaseBankAccountSerializer
 from bluebottle.funding_stripe.models import (
     StripePayment, StripePayoutAccount,
-    ExternalAccount)
+    ExternalAccount, StripeConnectLink
+)
 from bluebottle.funding_stripe.models import StripeSourcePayment, PaymentIntent
 from bluebottle.utils.fields import ValidationErrorsField, RequiredErrorsField
 
@@ -129,3 +130,19 @@ class PayoutStripeBankSerializer(serializers.ModelSerializer):
             'currency'
         )
         model = ExternalAccount
+
+
+class StripeConnectLinkSerializer(serializers.ModelSerializer):
+    account = ResourceRelatedField(queryset=StripePayoutAccount.objects.all())
+    link = serializers.CharField(read_only=True)
+
+    class Meta:
+        fields = (
+            'id',
+            'account',
+            'link'
+        )
+        model = StripeConnectLink
+
+    class JSONAPIMeta(BaseBankAccountSerializer.JSONAPIMeta):
+        resource_name = 'payout-accounts/stripe-connect-links'
