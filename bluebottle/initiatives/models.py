@@ -35,11 +35,13 @@ class Initiative(TriggerMixin, AnonymizationMixin, ValidatedModelMixin, models.M
     owner = models.ForeignKey(
         'members.Member',
         verbose_name=_('owner'),
+        on_delete=models.SET_NULL,
         related_name='own_%(class)ss',
     )
 
     reviewer = models.ForeignKey(
         'members.Member',
+        on_delete=models.SET_NULL,
         null=True,
         blank=True,
         verbose_name=_('reviewer'),
@@ -48,6 +50,7 @@ class Initiative(TriggerMixin, AnonymizationMixin, ValidatedModelMixin, models.M
 
     activity_manager = models.ForeignKey(
         'members.Member',
+        on_delete=models.SET_NULL,
         null=True,
         blank=True,
         verbose_name=_('activity manager'),
@@ -56,6 +59,7 @@ class Initiative(TriggerMixin, AnonymizationMixin, ValidatedModelMixin, models.M
 
     promoter = models.ForeignKey(
         'members.Member',
+        on_delete=models.SET_NULL,
         verbose_name=_('promoter'),
         blank=True,
         null=True,

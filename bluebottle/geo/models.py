@@ -65,7 +65,7 @@ class SubRegion(GeoBaseModel):
         name=models.CharField(_("name"), max_length=100)
     )
 
-    region = models.ForeignKey(Region, verbose_name=_("region"))
+    region = models.ForeignKey(Region, on_delete=models.SET_NULL, verbose_name=_("region"))
 
     class Meta(GeoBaseModel.Meta):
         verbose_name = _("sub region")
@@ -80,7 +80,7 @@ class Country(GeoBaseModel):
         name=models.CharField(_("name"), max_length=100)
     )
 
-    subregion = models.ForeignKey(SubRegion, verbose_name=_("sub region"))
+    subregion = models.ForeignKey(SubRegion, on_delete=models.SET_NULL, verbose_name=_("sub region"))
     # https://en.wikipedia.org/wiki/ISO_3166-1
     alpha2_code = models.CharField(_("alpha2 code"), max_length=2, blank=True,
                                    validators=[Alpha2CodeValidator],
@@ -122,10 +122,12 @@ class Location(models.Model):
     slug = models.SlugField(_('slug'), blank=False, null=True, max_length=255)
 
     position = GeopositionField(null=True)
-    group = models.ForeignKey('geo.LocationGroup', verbose_name=_('location group'),
+    group = models.ForeignKey('geo.LocationGroup', on_delete=models.SET_NULL,
+                              verbose_name=_('location group'),
                               null=True, blank=True)
     city = models.CharField(_('city'), blank=True, null=True, max_length=255)
-    country = models.ForeignKey('geo.Country', blank=True, null=True)
+    country = models.ForeignKey('geo.Country', on_delete=models.SET_NULL,
+                                blank=True, null=True)
     description = models.TextField(_('description'), blank=True)
     image = ImageField(_('image'), max_length=255, null=True, blank=True,
                        upload_to='location_images/', help_text=_('Location picture'))
@@ -151,7 +153,7 @@ class Place(models.Model):
     postal_code = models.CharField(_('Postal Code'), max_length=255, blank=True, null=True)
     locality = models.CharField(_('Locality'), max_length=255, blank=True, null=True)
     province = models.CharField(_('Province'), max_length=255, blank=True, null=True)
-    country = models.ForeignKey('geo.Country')
+    country = models.ForeignKey('geo.Country', on_delete=models.SET_NULL)
 
     formatted_address = models.CharField(_('Address'), max_length=255, blank=True, null=True)
 
@@ -168,7 +170,7 @@ class InitiativePlace(models.Model):
     postal_code = models.CharField(_('Postal Code'), max_length=255, blank=True, null=True)
     locality = models.CharField(_('Locality'), max_length=255, blank=True, null=True)
     province = models.CharField(_('Province'), max_length=255, blank=True, null=True)
-    country = models.ForeignKey('geo.Country')
+    country = models.ForeignKey('geo.Country', on_delete=models.SET_NULL)
 
     formatted_address = models.CharField(_('Address'), max_length=255, blank=True, null=True)
 
@@ -181,7 +183,7 @@ class Geolocation(models.Model):
     postal_code = models.CharField(_('Postal Code'), max_length=255, blank=True, null=True)
     locality = models.CharField(_('Locality'), max_length=255, blank=True, null=True)
     province = models.CharField(_('Province'), max_length=255, blank=True, null=True)
-    country = models.ForeignKey('geo.Country')
+    country = models.ForeignKey('geo.Country', on_delete=models.SET_NULL)
 
     formatted_address = models.CharField(_('Address'), max_length=255, blank=True, null=True)
 
@@ -194,6 +196,6 @@ class Geolocation(models.Model):
 
     def __unicode__(self):
         if self.locality:
-            return u"{}, {}".format(self.locality, self.country.name)
+            return "{}, {}".format(self.locality, self.country.name)
         else:
             return self.country.name

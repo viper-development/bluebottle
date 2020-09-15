@@ -1,7 +1,7 @@
 import json
 import logging
 import socket
-import urllib
+import urllib.request, urllib.parse, urllib.error
 from collections import namedtuple
 from importlib import import_module
 
@@ -12,8 +12,8 @@ from django.contrib.auth.management import create_permissions
 from django.contrib.auth.models import Permission, Group
 from django.core.exceptions import ObjectDoesNotExist
 from django.core.signing import TimestampSigner
-from django.core.urlresolvers import reverse
 from django.db import connection
+from django.urls import reverse
 from django_fsm import TransitionNotAllowed
 from django_tools.middlewares import ThreadLocal
 
@@ -262,14 +262,14 @@ def update_group_permissions(label, group_perms, apps):
         create_permissions(app_config, apps=apps, verbosity=0)
         app_config.models_module = None
 
-    for group_name, permissions in group_perms.items():
+    for group_name, permissions in list(group_perms.items()):
         group, _ = Group.objects.get_or_create(name=group_name)
         for perm_codename in permissions['perms']:
             try:
                 permissions = Permission.objects.filter(codename=perm_codename)
                 permissions = permissions.filter(content_type__app_label=label)
                 group.permissions.add(permissions.get())
-            except Permission.DoesNotExist, err:
+            except Permission.DoesNotExist as err:
                 logging.debug(err)
                 raise Exception(
                     'Could not add permission: {}: {}'.format(perm_codename, err)
@@ -296,7 +296,7 @@ signer = TimestampSigner()
 def reverse_signed(name, args):
     url = reverse(name, args=args)
     signature = signer.sign(url)
-    return '{}?{}'.format(url, urllib.urlencode({'signature': signature}))
+    return '{}?{}'.format(url, urllib.parse.urlencode({'signature': signature}))
 
 
 def get_language_from_request(request):
@@ -304,7 +304,7 @@ def get_language_from_request(request):
 
 
 def _json_object_hook(d):
-    return namedtuple('X', d.keys())(*d.values())
+    return namedtuple('X', list(d.keys()))(*list(d.values()))
 
 
 def json2obj(data):

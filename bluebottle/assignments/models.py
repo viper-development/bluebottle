@@ -44,7 +44,8 @@ class Assignment(Activity):
         choices=EndDateTypes.choices)
 
     capacity = models.PositiveIntegerField(_('number of people needed'), null=True, blank=True)
-    expertise = models.ForeignKey('tasks.Skill', verbose_name=_('skill'), blank=True, null=True)
+    expertise = models.ForeignKey('tasks.Skill', on_delete=models.CASCADE,
+                                  verbose_name=_('skill'), blank=True, null=True)
 
     is_online = models.NullBooleanField(null=True, default=None)
 

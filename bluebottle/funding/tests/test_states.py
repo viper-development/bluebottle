@@ -94,12 +94,12 @@ class FundingStateMachineTests(BluebottleTestCase):
 
         self.assertEqual(
             mail.outbox[0].subject,
-            u'Your campaign "{}" is approved and is now open for donations 💸'.format(
+            'Your campaign "{}" is approved and is now open for donations 💸'.format(
                 self.funding.title
             )
         )
         self.assertTrue(
-            u'Congratulations! Your campaign “{}” has been approved.'.format(
+            'Congratulations! Your campaign “{}” has been approved.'.format(
                 self.funding.title
             )
             in mail.outbox[0].body
@@ -114,12 +114,12 @@ class FundingStateMachineTests(BluebottleTestCase):
 
         self.assertEqual(
             mail.outbox[0].subject,
-            u'Your campaign "{}" has been cancelled'.format(
+            'Your campaign "{}" has been cancelled'.format(
                 self.funding.title
             )
         )
         self.assertTrue(
-            u'Unfortunately your campaign “{}” has been cancelled.'.format(
+            'Unfortunately your campaign “{}” has been cancelled.'.format(
                 self.funding.title
             )
             in mail.outbox[0].body
@@ -188,13 +188,13 @@ class FundingStateMachineTests(BluebottleTestCase):
 
         self.assertEqual(
             mail.outbox[0].subject,
-            u'Your campaign "{}" is open for new donations 💸'.format(
+            'Your campaign "{}" is open for new donations 💸'.format(
                 self.funding.title
             )
         )
 
         self.assertTrue(
-            u'The deadline for your campaign “{}” has been extended.'.format(
+            'The deadline for your campaign “{}” has been extended.'.format(
                 self.funding.title
             ) in mail.outbox[0].body
         )
@@ -240,7 +240,7 @@ class FundingStateMachineTests(BluebottleTestCase):
 
         self.assertEqual(
             donor_mail.subject,
-            u'Your donation for the campaign "{}" will be refunded'.format(
+            'Your donation for the campaign "{}" will be refunded'.format(
                 self.funding.title
             )
         )
@@ -258,7 +258,7 @@ class FundingStateMachineTests(BluebottleTestCase):
 
         self.assertEqual(
             owner_mail.subject,
-            u'The donations received for your campaign "{}" will be refunded'.format(
+            'The donations received for your campaign "{}" will be refunded'.format(
                 self.funding.title
             )
         )
@@ -276,7 +276,7 @@ class FundingStateMachineTests(BluebottleTestCase):
         self.assertEqual(len(mail.outbox), 1)
         self.assertEqual(
             mail.outbox[0].subject,
-            u'Your campaign "{}" has been successfully completed! \U0001f389'.format(self.funding.title)
+            'Your campaign "{}" has been successfully completed! \\U0001f389'.format(self.funding.title)
         )
 
     def test_succeed_generate_payouts(self):
@@ -296,7 +296,7 @@ class FundingStateMachineTests(BluebottleTestCase):
         self.assertEqual(len(mail.outbox), 1)
         self.assertEqual(
             mail.outbox[0].subject,
-            u'Your crowdfunding campaign has been rejected.'
+            'Your crowdfunding campaign has been rejected.'
         )
 
     def test_close_with_donations(self):
@@ -351,13 +351,13 @@ class DonationStateMachineTests(BluebottleTestCase):
         mail.outbox = []
         donation = DonationFactory.create(activity=self.funding, amount=Money(500, 'EUR'))
         donation.states.succeed(save=True)
-        self.assertEqual(mail.outbox[0].subject, u'You have a new donation!\U0001f4b0')
+        self.assertEqual(mail.outbox[0].subject, 'You have a new donation!\\U0001f4b0')
 
     def test_succeed_mail_activity_manager(self):
         mail.outbox = []
         donation = DonationFactory.create(activity=self.funding, amount=Money(500, 'EUR'))
         donation.states.succeed(save=True)
-        self.assertEqual(mail.outbox[1].subject, u'Thanks for your donation!')
+        self.assertEqual(mail.outbox[1].subject, 'Thanks for your donation!')
 
     def test_succeed_follow(self):
         mail.outbox = []
@@ -402,7 +402,7 @@ class DonationStateMachineTests(BluebottleTestCase):
 
         self.assertEqual(
             mail.outbox[0].subject,
-            u'Your donation for the campaign "{}" will be refunded'.format(
+            'Your donation for the campaign "{}" will be refunded'.format(
                 self.funding.title
             )
         )
@@ -472,7 +472,7 @@ class DonationStateMachineTests(BluebottleTestCase):
         donation.states.activity_refund(save=True)
         self.assertEqual(
             mail.outbox[0].subject,
-            u'Your donation for the campaign "{}" will be refunded'.format(self.funding.title)
+            'Your donation for the campaign "{}" will be refunded'.format(self.funding.title)
         )
 
 

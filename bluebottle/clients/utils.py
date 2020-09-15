@@ -12,8 +12,8 @@ from django.contrib.contenttypes.models import ContentType
 from django.core.exceptions import ImproperlyConfigured
 from django.db import connection, ProgrammingError
 from django.utils.translation import get_language
-from djmoney_rates.exceptions import CurrencyConversionException
-from djmoney_rates.utils import get_rate
+from djmoney.contrib.exchange.models import get_rate
+from djmoney.contrib.exchange.exceptions import MissingRate
 from tenant_extras.utils import get_tenant_properties
 
 from bluebottle.clients import properties
@@ -83,17 +83,17 @@ def tenant_site():
 def get_min_amounts(methods):
     result = defaultdict(list)
     for method in methods:
-        for currency, data in method['currencies'].items():
+        for currency, data in list(method['currencies'].items()):
             result[currency].append(data.get('min_amount', 0))
 
-    return dict((currency, min(amounts)) for currency, amounts in result.items())
+    return dict((currency, min(amounts)) for currency, amounts in list(result.items()))
 
 
 def get_currencies():
     properties = get_tenant_properties()
 
     currencies = set(itertools.chain(*[
-        method['currencies'].keys() for method in properties.PAYMENT_METHODS
+        list(method['currencies'].keys()) for method in properties.PAYMENT_METHODS
     ]))
     min_amounts = get_min_amounts(properties.PAYMENT_METHODS)
 
@@ -108,7 +108,7 @@ def get_currencies():
             currency['minAmount'] = min_amounts[currency['code']]
         try:
             currency['rate'] = get_rate(currency['code'])
-        except (CurrencyConversionException, ProgrammingError):
+        except (MissingRate, ProgrammingError):
             currency['rate'] = 1
 
     return currencies
@@ -262,7 +262,7 @@ def get_public_properties(request):
 
         try:
             config['readOnlyFields'] = {
-                'user': properties.TOKEN_AUTH.get('assertion_mapping', {}).keys()
+                'user': list(properties.TOKEN_AUTH.get('assertion_mapping', {}).keys())
             }
         except AttributeError:
             pass

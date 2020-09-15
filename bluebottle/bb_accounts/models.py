@@ -171,6 +171,7 @@ class BlueBottleBaseUser(AbstractBaseUser, PermissionsMixin):
 
     partner_organization = models.ForeignKey(
         'organizations.Organization',
+        on_delete=models.CASCADE,
         blank=True, null=True,
         help_text=_('Users that are connected to a partner organisation '
                     'will skip the organisation step in initiative create.'),
@@ -239,7 +240,7 @@ class BlueBottleBaseUser(AbstractBaseUser, PermissionsMixin):
         """
         Returns the first_name plus the last_name, with a space in between.
         """
-        full_name = u'{0} {1}'.format(self.first_name, self.last_name)
+        full_name = '{0} {1}'.format(self.first_name, self.last_name)
         return full_name.strip()
 
     def anonymize(self):

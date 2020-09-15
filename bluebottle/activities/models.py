@@ -17,7 +17,7 @@ from bluebottle.utils.utils import get_current_host, get_current_language, clean
 
 class Activity(TriggerMixin, AnonymizationMixin, ValidatedModelMixin, PolymorphicModel):
     owner = models.ForeignKey(
-        'members.Member',
+        'members.Member', on_delete=models.CASCADE,
         verbose_name=_('owner'),
         related_name='activities',
     )
@@ -37,7 +37,7 @@ class Activity(TriggerMixin, AnonymizationMixin, ValidatedModelMixin, Polymorphi
 
     review_status = models.CharField(max_length=40, default='draft')
 
-    initiative = models.ForeignKey(Initiative, related_name='activities')
+    initiative = models.ForeignKey(Initiative, on_delete=models.CASCADE, related_name='activities')
 
     title = models.CharField(_('Title'), max_length=255)
     slug = models.SlugField(_('Slug'), max_length=100, default='new')
@@ -107,7 +107,7 @@ class Activity(TriggerMixin, AnonymizationMixin, ValidatedModelMixin, Polymorphi
     def get_absolute_url(self):
         domain = get_current_host()
         language = get_current_language()
-        link = u"{}/{}/initiatives/activities/details/{}/{}/{}".format(
+        link = "{}/{}/initiatives/activities/details/{}/{}/{}".format(
             domain, language,
             self.__class__.__name__.lower(),
             self.pk,
@@ -134,7 +134,8 @@ class Contribution(TriggerMixin, AnonymizationMixin, PolymorphicModel):
     contribution_date = models.DateTimeField()
 
     activity = models.ForeignKey(Activity, related_name='contributions', on_delete=NON_POLYMORPHIC_CASCADE)
-    user = models.ForeignKey('members.Member', verbose_name=_('user'), null=True, blank=True)
+    user = models.ForeignKey('members.Member', on_delete=models.CASCADE,
+                             verbose_name=_('user'), null=True, blank=True)
 
     @property
     def owner(self):

@@ -24,14 +24,14 @@ class Follow(models.Model):
     user and another Django model.
     """
 
-    user = models.ForeignKey('members.Member')
+    user = models.ForeignKey('members.Member', on_delete=models.CASCADE)
     content_type = models.ForeignKey(ContentType)
     object_id = models.PositiveIntegerField()
     followed_object = fields.GenericForeignKey('content_type', 'object_id')
 
     def __unicode__(self):
         if self.followed_object:
-            return unicode(self.followed_object)
+            return str(self.followed_object)
         return self.id
 
     def validate_unique(self, exclude=None):

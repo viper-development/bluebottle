@@ -77,7 +77,7 @@ class ActivityStateMachineTests(BluebottleTestCase):
             'Your event "{}" has been cancelled'.format(self.event.title)
         )
         self.assertTrue(
-            u'Unfortunately your event “{}” has been cancelled.'.format(
+            'Unfortunately your event “{}” has been cancelled.'.format(
                 self.event.title
             )
             in mail.outbox[1].body
@@ -340,7 +340,7 @@ class ActivityStateMachineTests(BluebottleTestCase):
             'Your event "{}" has been cancelled'.format(self.passed_event.title)
         )
         self.assertTrue(
-            u'Unfortunately, nobody joined your event “{}”'.format(self.passed_event.title)
+            'Unfortunately, nobody joined your event “{}”'.format(self.passed_event.title)
             in mail.outbox[1].body
         )
 
@@ -462,7 +462,7 @@ class ParticipantStateMachineTests(BluebottleTestCase):
         self.assertTrue(
             self.event.followers.filter(user=self.participant.user).exists()
         )
-        print [m.subject for m in self.messages(self.participant.user)]
+        print([m.subject for m in self.messages(self.participant.user)])
         self.assertEqual(
             len(self.messages(self.participant.user)), 2
         )
@@ -500,9 +500,9 @@ class ParticipantStateMachineTests(BluebottleTestCase):
         self.assertEqual(
 
             [
-                u'You were added to the event "{}"'.format(self.event.title),
-                u'You have been rejected for the event "{}"'.format(self.event.title),
-                u'You were added to the event "{}"'.format(self.event.title)
+                'You were added to the event "{}"'.format(self.event.title),
+                'You have been rejected for the event "{}"'.format(self.event.title),
+                'You were added to the event "{}"'.format(self.event.title)
             ],
             [
                 m.subject for m in self.messages(self.participant.user)

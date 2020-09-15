@@ -11,7 +11,6 @@ from operator import attrgetter
 from parler.models import TranslatableModel, TranslatedFields
 
 import bluebottle.utils.monkey_patch_corsheaders  # noqa
-import bluebottle.utils.monkey_patch_dj_money_rates  # noqa
 import bluebottle.utils.monkey_patch_django_elasticsearch_dsl  # noqa
 import bluebottle.utils.monkey_patch_migration  # noqa
 import bluebottle.utils.monkey_patch_money_readonly_fields  # noqa
@@ -47,7 +46,7 @@ class Address(models.Model):
     line2 = models.CharField(max_length=100, blank=True)
     city = models.CharField(max_length=100, blank=True)
     state = models.CharField(max_length=100, blank=True)
-    country = models.ForeignKey('geo.Country', blank=True, null=True)
+    country = models.ForeignKey('geo.Country', on_delete=models.CASCADE, blank=True, null=True)
     postal_code = models.CharField(max_length=20, blank=True)
 
     class Meta:
@@ -59,7 +58,7 @@ class Address(models.Model):
 
 class MailLog(models.Model):
 
-    content_type = models.ForeignKey(ContentType)
+    content_type = models.ForeignKey(ContentType, on_delete=models.CASCADE)
     object_id = models.PositiveIntegerField()
     content_object = GenericForeignKey('content_type', 'object_id')
     type = models.CharField(max_length=200)
@@ -117,7 +116,7 @@ class PublishableModel(models.Model):
                                                 null=True, blank=True,
                                                 db_index=True)
     # Metadata
-    author = models.ForeignKey('members.Member',
+    author = models.ForeignKey('members.Member', on_delete=models.CASCADE,
                                verbose_name=_('author'), blank=True, null=True)
     creation_date = CreationDateTimeField(_('creation date'))
     modification_date = ModificationDateTimeField(_('last modification'))
@@ -155,7 +154,7 @@ class ValidatedModelMixin(object):
         for validator in self.validators:
             try:
                 validator(self)()
-            except ValidatorError, e:
+            except ValidatorError as e:
                 yield e
 
     @property
@@ -195,7 +194,7 @@ class TranslationPlatformSettings(TranslatableModel, BasePlatformSettings):
             max_length=100, null=True, blank=True
         ),
         whats_the_location_of_your_office=models.CharField(
-            u'What\u2019s the location of your office?',
+            'What\\u2019s the location of your office?',
             max_length=100, null=True, blank=True
         ),
 

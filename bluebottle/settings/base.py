@@ -285,7 +285,7 @@ SHARED_APPS = (
     'tenant_extras',
     'localflavor',
     'corsheaders',
-    'djmoney_rates',
+    'djmoney.contrib.exchange',
     'parler',
     'daterange_filter',
     'adminsortable',
@@ -326,8 +326,6 @@ TENANT_APPS = (
     'django.contrib.sites',
     'django.contrib.admindocs',
     'django.contrib.auth',
-
-    'bb_salesforce',
 
     'rest_framework.authtoken',
     'django_elasticsearch_dsl',
@@ -931,12 +929,12 @@ GEOPOSITION_GOOGLE_MAPS_API_KEY = ''
 STATIC_MAPS_API_KEY = ''
 STATIC_MAPS_API_SECRET = ''
 
-DJANGO_MONEY_RATES = {
-    'DEFAULT_BACKEND': 'djmoney_rates.backends.OpenExchangeBackend',
-    'OPENEXCHANGE_URL': 'http://openexchangerates.org/api/latest.json',
-    'OPENEXCHANGE_APP_ID': '3e53678e72c140b4857dc5bb1deb59dc',
-    'OPENEXCHANGE_BASE_CURRENCY': 'USD',
-}
+# DJANGO_MONEY_RATES = {
+#     'DEFAULT_BACKEND': 'djmoney.backends.OpenExchangeBackend',
+#     'OPENEXCHANGE_URL': 'http://openexchangerates.org/api/latest.json',
+#     'OPENEXCHANGE_APP_ID': '3e53678e72c140b4857dc5bb1deb59dc',
+#     'OPENEXCHANGE_BASE_CURRENCY': 'USD',
+# }
 AUTO_CONVERT_MONEY = False
 
 LOCKDOWN_URL_EXCEPTIONS = [

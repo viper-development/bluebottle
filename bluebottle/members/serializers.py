@@ -315,7 +315,7 @@ class ManageProfileSerializer(UserProfileSerializer):
         if place:
             if instance.place:
                 current_place = instance.place
-                for key, value in place.items():
+                for key, value in list(place.items()):
                     setattr(current_place, key, value)
                 current_place.save()
             else:
