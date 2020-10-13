@@ -46,9 +46,9 @@ class VitepayPaymentTestCase(BluebottleTestCase):
             }
         }
 
-    @patch('bluebottle.payments_vitepay.adapters.requests.post',
+    @patch('bluebottle.funding_vitepay.utils.requests.post',
            return_value=type('obj', (object,),
-                             {'status_code': 200, 'content': 'https://vitepay.com/some-path-to-pay'}))
+                             {'status_code': 200, 'content': b'https://vitepay.com/some-path-to-pay'}))
     def test_create_payment(self, vitepay_post):
         response = self.client.post(self.payment_url, data=json.dumps(self.data), user=self.user)
 

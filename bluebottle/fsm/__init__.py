@@ -1,22 +1,14 @@
+from builtins import object
 from functools import partial
 
 from django.db import models
 from django.dispatch import Signal
 
+from bluebottle.fsm.state import TransitionNotPossible
+from future.utils import with_metaclass
+
 pre_transition = Signal(providing_args=['instance', 'name', 'source', 'target', 'options', 'kwargs'])
 post_transition = Signal(providing_args=['instance', 'name', 'source', 'target', 'options', 'kwargs'])
-
-
-class TransitionNotAllowed(Exception):
-    """Exception that is raised when a transition that is not allowed the be performed by the current user
-    is tried.
-    """
-
-
-class TransitionNotPossible(Exception):
-    """Exception that is raised when a transition that is not allowed in the current state
-    is tried.
-    """
 
 
 class Transition(object):
@@ -122,9 +114,7 @@ class ModelTransitionsMeta(type):
         return type.__new__(cls, name, bases, dct)
 
 
-class ModelTransitions():
-    __metaclass__ = ModelTransitionsMeta
-
+class ModelTransitions(with_metaclass(ModelTransitionsMeta, object)):
     def __init__(self, instance, field):
         self.instance = instance
         self.field = field
@@ -150,7 +140,7 @@ class ModelTransitions():
                 )
             )
         if not transition.is_allowed(self, user):
-            raise TransitionNotAllowed(
+            raise TransitionNotPossible(
                 'Not allowed to transition from {} to {}'.format(
                     original_source, transition.target
                 )

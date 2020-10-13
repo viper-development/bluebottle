@@ -57,6 +57,8 @@ class FundingStateMachine(ActivityStateMachine):
 
     def target_reached(self):
         """target amount has been reached (100% or more)"""
+        if not self.instance.target:
+            return False
         return self.instance.amount_raised >= self.instance.target
 
     def target_not_reached(self):
@@ -211,7 +213,8 @@ class FundingStateMachine(ActivityStateMachine):
         description=_("The campaign will be extended and can receive more donations."),
         automatic=True,
         conditions=[
-            without_approved_payouts
+            without_approved_payouts,
+            deadline_in_future
         ],
         effects=[
             DeletePayoutsEffect,
@@ -541,7 +544,10 @@ class PayoutStateMachine(ModelStateMachine):
         scheduled,
         name=_('Schedule'),
         description=_("Schedule payout. Triggered by payout app."),
-        automatic=True
+        automatic=True,
+        effects=[
+            ClearPayoutDatesEffect
+        ]
     )
 
     start = Transition(
@@ -576,6 +582,15 @@ class PayoutStateMachine(ModelStateMachine):
         effects=[
             SetDateEffect('date_completed')
         ]
+    )
+
+    fail = Transition(
+        AllStates(),
+        failed,
+        name=_('Fail'),
+        description=_("Payout was not successful. "
+                      "Contact support to resolve the issue."),
+        automatic=True,
     )
 
 
@@ -634,7 +649,7 @@ class PayoutAccountStateMachine(ModelStateMachine):
     )
 
     verify = Transition(
-        [new, incomplete, rejected],
+        [new, incomplete, rejected, pending],
         verified,
         name=_('Verify'),
         description=_("Verify the payout account."),

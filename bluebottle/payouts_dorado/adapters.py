@@ -1,3 +1,5 @@
+from builtins import str
+from builtins import object
 import json
 import requests
 
@@ -6,6 +8,7 @@ from django.db import connection
 from requests.exceptions import MissingSchema
 
 from bluebottle.clients import properties
+from bluebottle.fsm.state import TransitionNotPossible
 
 
 class PayoutValidationError(Exception):
@@ -29,18 +32,17 @@ class DoradoPayoutAdapter(object):
             'payout_id': self.payout.pk,
             'tenant': self.tenant.client_name,
         }
-
         try:
             response = requests.post(self.settings['url'], data)
             response.raise_for_status()
         except requests.HTTPError:
             try:
-                raise PayoutValidationError(json.loads(response.content))
+                raise TransitionNotPossible(json.loads(response.content))
             except ValueError:
-                raise PayoutCreationError(response.content)
+                raise TransitionNotPossible(response.content)
         except MissingSchema:
             raise ImproperlyConfigured("Incorrect Payout URL")
-        except IOError, e:
-            raise PayoutCreationError(unicode(e))
+        except IOError as e:
+            raise PayoutCreationError(str(e))
         except TypeError:
             raise ImproperlyConfigured("Invalid Payout settings")

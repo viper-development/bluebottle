@@ -1,4 +1,6 @@
-import urlparse
+from future import standard_library
+standard_library.install_aliases()
+import urllib.parse
 import os
 from mock import patch
 
@@ -15,6 +17,7 @@ from bluebottle.token_auth.auth.saml import SAMLAuthentication
 from bluebottle.token_auth.tests.saml_settings import TOKEN_AUTH2_SETTINGS
 
 from .saml_settings import TOKEN_AUTH_SETTINGS
+from ...test.factory_models.geo import LocationFactory
 
 
 class TestSAMLTokenAuthentication(TestCase):
@@ -43,10 +46,10 @@ class TestSAMLTokenAuthentication(TestCase):
 
             auth_backend = SAMLAuthentication(request)
 
-            sso_url = urlparse.urlparse(auth_backend.sso_url())
-            query = urlparse.parse_qs(sso_url.query)
+            sso_url = urllib.parse.urlparse(auth_backend.sso_url())
+            query = urllib.parse.parse_qs(sso_url.query)
             self.assertEqual(
-                urlparse.urlunparse((
+                urllib.parse.urlunparse((
                     sso_url.scheme, sso_url.netloc, sso_url.path, None, None, None)
                 ),
                 TOKEN_AUTH_SETTINGS['idp']['singleSignOnService']['url']
@@ -64,10 +67,10 @@ class TestSAMLTokenAuthentication(TestCase):
             request = self._request('get', '/sso/redirect', HTTP_HOST='www.stuff.com')
             auth_backend = SAMLAuthentication(request)
 
-            sso_url = urlparse.urlparse(auth_backend.sso_url(target_url='/test'))
-            query = urlparse.parse_qs(sso_url.query)
+            sso_url = urllib.parse.urlparse(auth_backend.sso_url(target_url='/test'))
+            query = urllib.parse.parse_qs(sso_url.query)
             self.assertEqual(
-                urlparse.urlunparse((
+                urllib.parse.urlunparse((
                     sso_url.scheme, sso_url.netloc, sso_url.path, None, None, None)
                 ),
                 TOKEN_AUTH_SETTINGS['idp']['singleSignOnService']['url']
@@ -346,11 +349,13 @@ class TestSAMLTokenAuthentication(TestCase):
                 TokenAuthenticationError,
                 auth_backend.authenticate
             )
-            error.assert_called_with((
-                'Saml login error: [\'invalid_response\'], reason: '
-                'Signature validation failed. SAML Response rejected, '
-                'assertions: []'
-            ))
+            self.assertTrue(
+                (
+                    'Saml login error: [\'invalid_response\'], reason: '
+                    'Signature validation failed. SAML Response rejected, '
+                    'assertions: '
+                ) in error.call_args[0][0]
+            )
 
     @patch('bluebottle.token_auth.auth.saml.logger.error')
     def test_auth_no_response(self, error):
@@ -379,10 +384,10 @@ class TestSAMLTokenAuthentication(TestCase):
             request = self._request('get', '/sso/redirect', HTTP_HOST='www.stuff.com')
             auth_backend = SAMLAuthentication(request)
 
-            sso_url = urlparse.urlparse(auth_backend.sso_url())
-            query = urlparse.parse_qs(sso_url.query)
+            sso_url = urllib.parse.urlparse(auth_backend.sso_url())
+            query = urllib.parse.parse_qs(sso_url.query)
             self.assertEqual(
-                urlparse.urlunparse((
+                urllib.parse.urlunparse((
                     sso_url.scheme, sso_url.netloc, sso_url.path, None, None, None)
                 ),
                 TOKEN_AUTH_SETTINGS['idp']['singleSignOnService']['url']
@@ -401,10 +406,10 @@ class TestSAMLTokenAuthentication(TestCase):
             request = self._request('get', '/sso/redirect', HTTP_HOST='www.stuff.com')
             auth_backend = SAMLAuthentication(request)
 
-            sso_url = urlparse.urlparse(auth_backend.sso_url())
-            query = urlparse.parse_qs(sso_url.query)
+            sso_url = urllib.parse.urlparse(auth_backend.sso_url())
+            query = urllib.parse.parse_qs(sso_url.query)
             self.assertEqual(
-                urlparse.urlunparse((
+                urllib.parse.urlunparse((
                     sso_url.scheme, sso_url.netloc, sso_url.path, None, None, None)
                 ),
                 TOKEN_AUTH_SETTINGS['idp']['singleSignOnService']['url']
@@ -422,10 +427,10 @@ class TestSAMLTokenAuthentication(TestCase):
             request = self._request('get', '/sso/redirect', HTTP_HOST='www.stuff.com')
             auth_backend = SAMLAuthentication(request)
 
-            sso_url = urlparse.urlparse(auth_backend.sso_url())
-            query = urlparse.parse_qs(sso_url.query)
+            sso_url = urllib.parse.urlparse(auth_backend.sso_url())
+            query = urllib.parse.parse_qs(sso_url.query)
             self.assertEqual(
-                urlparse.urlunparse((
+                urllib.parse.urlunparse((
                     sso_url.scheme, sso_url.netloc, sso_url.path, None, None, None)
                 ),
                 TOKEN_AUTH_SETTINGS['idp']['singleSignOnService']['url']
@@ -523,3 +528,35 @@ class TestSAMLTokenAuthentication(TestCase):
             )
 
             self.assertTrue('email' not in result)
+
+    def test_empty_claims(self):
+        settings = dict(**TOKEN_AUTH_SETTINGS)
+        LocationFactory.create(slug='amsterdam')
+        settings.update(
+            assertion_mapping={
+                'email': 'mail',
+                'remote_id': 'nameId',
+                'location.slug': 'location',
+            }
+        )
+
+        with self.settings(TOKEN_AUTH=settings):
+
+            request = self._request('get', '/sso/redirect', HTTP_HOST='www.stuff.com')
+            auth_backend = SAMLAuthentication(request)
+
+            result = auth_backend.parse_user({
+                'nameId': ['1234325'],
+                'location': ['amsterdam']
+            })
+            self.assertEqual(
+                result['location.slug'], 'amsterdam'
+            )
+
+            result = auth_backend.parse_user({
+                'nameId': ['4573457'],
+                'location': []
+            })
+            self.assertEqual(
+                result['location.slug'], ''
+            )

@@ -45,7 +45,7 @@ def get_payment_url(payment):
                                                    callback_url=callback_url,
                                                    api_secret=api_secret)
 
-    payment_hash = hashlib.sha1(message.upper()).hexdigest()
+    payment_hash = hashlib.sha1(message.upper().encode('utf-8')).hexdigest()
 
     email = ''
     if payment.donation.user:
@@ -74,11 +74,11 @@ def get_payment_url(payment):
     headers = {'Content-Type': 'application/json'}
     response = requests.post(url, data=json.dumps(data), headers=headers, verify=False)
     if response.status_code == 200:
-        payment.payment_url = response.content
+        payment.payment_url = response.content.decode()
         payment.save()
     else:
         raise PaymentException('Error creating payment: {0}'.format(response.content))
-    return response.content
+    return response.content.decode()
 
 
 def update_payment_status(payment, authenticity, success, failure):
@@ -97,7 +97,7 @@ def update_payment_status(payment, authenticity, success, failure):
         api_secret=api_secret
     )
 
-    update_hash = hashlib.sha1(message).hexdigest().upper()
+    update_hash = hashlib.sha1(message.encode('utf-8')).hexdigest().upper()
 
     # DIRTY HACK
     update_hash = authenticity

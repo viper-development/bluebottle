@@ -28,8 +28,8 @@ class SlideAdmin(admin.ModelAdmin):
         }),
         (_('Contents'), {
             'fields': (
-                'title', 'body', 'image', 'background_image', 'video_url',
-                'link_text', 'link_url', 'style'),
+                'title', 'body', 'image', 'background_image', 'video',
+                'video_url', 'link_text', 'link_url', 'style'),
         }),
         (_('Publication settings'), {
             'fields': ('status', 'publication_date', 'publication_end_date'),
@@ -42,7 +42,7 @@ class SlideAdmin(admin.ModelAdmin):
     }
 
     def get_base_object(self, pk):
-        pk = long(pk)
+        pk = int(pk)
         if pk:
             return Slide.objects.get(pk=pk)
         else:

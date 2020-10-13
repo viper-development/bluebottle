@@ -1,27 +1,50 @@
+from builtins import object
+from adminsortable.admin import SortableMixin
+from django.conf import settings
 from django.db import models
 from django.template.defaultfilters import slugify
 from django.utils.translation import ugettext_lazy as _
+from future.utils import python_2_unicode_compatible
 from parler.models import TranslatableModel, TranslatedFields
 
 from bluebottle.clients import properties
+from bluebottle.files.validators import validate_video_file_size
 from bluebottle.utils.fields import ImageField
-from adminsortable.admin import SortableMixin
+from bluebottle.utils.validators import FileMimetypeValidator
 
 
+@python_2_unicode_compatible
 class Category(TranslatableModel):
     slug = models.SlugField(_('slug'), max_length=100, unique=True)
 
-    image = ImageField(_("image"), max_length=255, blank=True, null=True, upload_to='categories/',
-                       help_text=_("Category image"))
-    image_logo = ImageField(_("logo"), max_length=255, blank=True, null=True, upload_to='categories/logos/',
-                            help_text=_("Category Logo image"))
+    image = ImageField(
+        _("image"), max_length=255, blank=True, null=True,
+        upload_to='categories/',
+        help_text=_("Category image"))
+    video = models.FileField(
+        _("video"), max_length=255,
+        blank=True, null=True,
+        validators=[
+            validate_video_file_size,
+            FileMimetypeValidator(
+                allowed_mimetypes=settings.VIDEO_FILE_ALLOWED_MIME_TYPES
+            )
+        ],
+        help_text=_('This video will autoplay at the background. '
+                    'Allowed types are mp4, ogg, 3gp, avi, mov and webm. '
+                    'File should be smaller then 10MB.'),
+        upload_to='banner_slides/')
+    image_logo = ImageField(
+        _("logo"), max_length=255, blank=True, null=True,
+        upload_to='categories/logos/',
+        help_text=_("Category Logo image"))
 
     translations = TranslatedFields(
         title=models.CharField(_("name"), max_length=255),
         description=models.TextField(_("description"))
     )
 
-    class Meta:
+    class Meta(object):
         verbose_name = _("category")
         verbose_name_plural = _("categories")
         # ordering = ['title']
@@ -29,7 +52,7 @@ class Category(TranslatableModel):
             ('api_read_category', 'Can view categories through API'),
         )
 
-    def __unicode__(self):
+    def __str__(self):
         return self.title
 
     def save(self, **kwargs):
@@ -42,6 +65,7 @@ class Category(TranslatableModel):
         return 'https://{}/projects/?category={}'.format(properties.tenant.domain_url, self.slug)
 
 
+@python_2_unicode_compatible
 class CategoryContent(SortableMixin, TranslatableModel):
     category = models.ForeignKey(Category, related_name='contents')
 
@@ -86,10 +110,10 @@ class CategoryContent(SortableMixin, TranslatableModel):
                                             "are accepted. Max: %(chars)s characters.") % {'chars': 100})
     sequence = models.PositiveIntegerField(default=0, editable=False, db_index=True)
 
-    class Meta:
+    class Meta(object):
         verbose_name = _("content block")
         verbose_name_plural = _("content blocks")
         ordering = ['sequence']
 
-    def __unicode__(self):
+    def __str__(self):
         return self.title

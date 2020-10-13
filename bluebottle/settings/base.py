@@ -2,7 +2,6 @@ import datetime
 import os
 from collections import OrderedDict
 
-from .payments import *  # noqa
 from .admin_dashboard import *  # noqa
 from django.utils.translation import ugettext_lazy as _
 
@@ -164,7 +163,7 @@ MIDDLEWARE_CLASSES = (
     'django_tools.middlewares.ThreadLocal.ThreadLocalMiddleware',
     'bluebottle.auth.middleware.SlidingJwtTokenMiddleware',
     'django.middleware.cache.FetchFromCacheMiddleware',
-    'bluebottle.auth.middleware.LogAuthFailureMiddleWare',
+    'bluebottle.auth.middleware.LogAuthFailureMiddleWare'
 )
 
 REST_FRAMEWORK = {
@@ -200,11 +199,7 @@ JWT_AUTH = {
 JWT_TOKEN_RENEWAL_DELTA = datetime.timedelta(minutes=30)
 
 # List of paths to ignore for locale redirects
-LOCALE_REDIRECT_IGNORE = ('/docs', '/go', '/api', '/payments_docdata',
-                          '/payments_mock', '/payments_interswitch',
-                          '/payments_vitepay', '/payments_flutterwave',
-                          '/payments_lipisha', '/payments_beyonic',
-                          '/payments_stripe', '/payouts_stripe',
+LOCALE_REDIRECT_IGNORE = ('/docs', '/go', '/api',
                           '/media', '/downloads', '/login-with',
                           '/surveys', '/token', '/jet')
 
@@ -252,9 +247,9 @@ SOCIAL_AUTH_PIPELINE = (
     'social.pipeline.social_auth.associate_by_email',
     'social.pipeline.user.create_user',
     'social.pipeline.social_auth.associate_user',
+    'bluebottle.auth.utils.refresh',
     'social.pipeline.social_auth.load_extra_data',
     'social.pipeline.user.user_details',
-    'bluebottle.auth.utils.refresh',
     'bluebottle.auth.utils.set_language',
     'bluebottle.auth.utils.save_profile_picture',
     'bluebottle.auth.utils.get_extra_facebook_data',
@@ -278,14 +273,12 @@ SHARED_APPS = (
     'lockdown',
     'django_extensions',
     'raven.contrib.django',
-    'djcelery',
     'micawber.contrib.mcdjango',  # Embedding videos
     'loginas',
     'geoposition',
     'tenant_extras',
     'localflavor',
     'corsheaders',
-    'djmoney_rates',
     'parler',
     'daterange_filter',
     'adminsortable',
@@ -293,6 +286,8 @@ SHARED_APPS = (
     'django_singleton_admin',
     'django_filters',
     'multiselectfield',
+
+    'djmoney.contrib.exchange',
 )
 
 TENANT_APPS = (
@@ -403,7 +398,6 @@ TENANT_APPS = (
     # Bluebottle apps with abstract models
     'bluebottle.bb_accounts',
     'bluebottle.bb_projects',
-    'bluebottle.bb_tasks',
     'bluebottle.bb_fundraisers',
     'bluebottle.bb_orders',
     'bluebottle.bb_payouts',
@@ -427,8 +421,6 @@ TENANT_APPS = (
 
     'bluebottle.cms',
 
-    # Note: Fixes the incorrect formatting of money values in the back-office
-    # https://github.com/django-money/django-money/issues/232
     'djmoney',
     'django_singleton_admin',
     'nested_inline',
@@ -462,7 +454,7 @@ LOGGING = {
     'disable_existing_loggers': False,
     'formatters': {
         'verbose': {
-            'format': '%(asctime)s %(levelname)s %(name) %(module)s %(process)d %(thread)d %(message)s'
+            'format': '%(asctime)s %(levelname)s %(name)s %(module)s %(process)d %(thread)d %(message)s'
         },
         'simple': {
             'format': '%(asctime)s %(levelname)s %(name)s %(message)s'
@@ -499,10 +491,6 @@ LOGGING = {
             'level': 'INFO',
             'class': 'raven.contrib.django.raven_compat.handlers.SentryHandler',
         },
-        'payment_logs': {
-            'level': 'INFO',
-            'class': 'bluebottle.payments_logger.handlers.PaymentLogHandler',
-        },
         'json': {
             'level': 'INFO',
             'class': 'logging.handlers.TimedRotatingFileHandler',
@@ -538,11 +526,6 @@ LOGGING = {
             'propagate': True,
             'level': 'ERROR',
         },
-        'payments.payment': {
-            'handlers': ['mail_admins', 'payment_logs', 'sentry'],
-            'propagate': False,
-            'level': 'INFO',
-        },
     }
 }
 
@@ -558,26 +541,6 @@ SOCIAL_AUTH_FACEBOOK_EXTRA_DATA = [('birthday', 'birthday')]
 
 # Default Client properties
 DONATIONS_ENABLED = True
-
-# Analytics Service
-ANALYTICS_ENABLED = False
-ANALYTICS_BACKENDS = {
-    # 'influxdb': {
-    #     'handler_class': 'bluebottle.analytics.backends.InfluxExporter',
-    #     'host': 'localhost',
-    #     'port': 8086,
-    #     'username': '',
-    #     'password': '',
-    #     'database': 'platform_v1',
-    #     'measurement': 'saas',
-    #     'ssl': True
-    # },
-    # 'file': {
-    #     'handler_class': 'bluebottle.analytics.backends.FileExporter',
-    #     'base_dir': os.path.join(PROJECT_ROOT, 'analytics'),
-    #     'measurement': 'saas',
-    # }
-}
 
 ANALYTICS_FRONTEND = ''
 ANALYTICS_BACKOFFICE_ENABLED = True
@@ -668,7 +631,13 @@ DJANGO_WYSIWYG_FLAVOR = "tinymce_advanced"
 
 ImageFile.LOAD_TRUNCATED_IMAGES = True
 
-IMAGE_ALLOWED_MIME_TYPES = ('image/png', 'image/jpeg', 'image/gif', 'image/svg+xml')
+IMAGE_ALLOWED_MIME_TYPES = (
+    'image/png', 'image/jpeg', 'image/gif', 'image/svg+xml'
+)
+VIDEO_FILE_ALLOWED_MIME_TYPES = (
+    'video/ogg', 'video/mp4', 'video/webm', 'video/3gpp',
+    'video/x-msvideo', 'video/quicktime'
+)
 PRIVATE_FILE_ALLOWED_MIME_TYPES = (
     'image/png', 'image/jpeg', 'image/gif', 'image/tiff',
     'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
@@ -893,6 +862,7 @@ DONATION_AMOUNTS = {
 }
 
 DEFAULT_CURRENCY = 'EUR'
+BASE_CURRENCY = 'USD'
 
 # By default we do not show suggestion on the start-project page
 PROJECT_SUGGESTIONS = False
@@ -925,12 +895,10 @@ GEOPOSITION_GOOGLE_MAPS_API_KEY = ''
 STATIC_MAPS_API_KEY = ''
 STATIC_MAPS_API_SECRET = ''
 
-DJANGO_MONEY_RATES = {
-    'DEFAULT_BACKEND': 'djmoney_rates.backends.OpenExchangeBackend',
-    'OPENEXCHANGE_URL': 'http://openexchangerates.org/api/latest.json',
-    'OPENEXCHANGE_APP_ID': '3e53678e72c140b4857dc5bb1deb59dc',
-    'OPENEXCHANGE_BASE_CURRENCY': 'USD',
-}
+# django money settings
+OPEN_EXCHANGE_RATES_APP_ID = 'c2cedc60485a48efa65631d5230c23e1'
+RATES_CACHE_TIMEOUT = 60 * 60 * 24
+
 AUTO_CONVERT_MONEY = False
 
 LOCKDOWN_URL_EXCEPTIONS = [
@@ -938,8 +906,8 @@ LOCKDOWN_URL_EXCEPTIONS = [
     r'^/api/scim/v2/'
 ]
 
-THUMBNAIL_ENGINE = 'sorl_watermarker.engines.pil_engine.Engine'
-THUMBNAIL_WATERMARK_ALWAYS = False
+# THUMBNAIL_ENGINE = 'sorl_watermarker.engines.pil_engine.Engine'
+# THUMBNAIL_WATERMARK_ALWAYS = False
 
 REMINDER_MAIL_DELAY = 60 * 24 * 3  # Three days
 
