@@ -1,0 +1,13 @@
+version: '3'
+
+services:
+  backend:
+    build: .
+    command: ./docker/run-local.sh
+    environment:
+      - DJANGO_DEBUG=True
+      - ENV=development
+    volumes:
+      - .:/opt/bluebottle
+    ports:
+      - 8000:8080

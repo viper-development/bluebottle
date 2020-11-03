@@ -1,0 +1,33 @@
+version: '3'
+
+services:
+  db:
+    image: registry.gitlab.viperdev.io/viperdev/template/pg-image:postgis
+    environment:
+      - POSTGRES_HOST=db
+      - POSTGRES_PORT=5432
+      - POSTGRES_USER=bluebottle_test
+      - POSTGRES_PASSWORD=password
+      - POSTGRES_DB=bluebottle_test
+    volumes:
+      - db_data:/var/lib/postgresql/data
+  backend:
+    depends_on:
+      - db
+    build: .
+    command: ./docker/run.sh
+    environment:
+      - DJANGO_DEBUG=True
+      - ENV=development
+      - DB_ADDRESS=db
+      - DB_PORT=5432
+      - DB_NAME=bluebottle_test
+      - DB_USER=bluebottle_test
+      - DB_PASSWORD=password
+    volumes:
+      - .:/opt/bluebottle
+    ports:
+      - 8000:8080
+
+volumes:
+  db_data: {}
