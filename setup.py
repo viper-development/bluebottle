@@ -20,9 +20,9 @@ install_requires = [
     'South==1.0.2',
     'beautifulsoup4==4.6.0',
     'bleach==2.1.4',
-    'celery==4.3',
+    'celery<4.0',
     'dotted==0.1.8',
-    'defusedxml==0.6.0',
+    'defusedxml==0.4.1',
     'django-admin-sortable==2.2.1',
     'django-admin-tools==0.8.1',
     'django-adminfilters==0.3',
@@ -58,7 +58,7 @@ install_requires = [
     'django-subquery==1.0.4',
     'django-summernote==0.8.7.3',
     'django-taggit==0.22.1',
-    'django-tenant-schemas==1.9.0',
+    'django-tenant-schemas==1.10.0',
     'django-tinymce==2.7.0',
     'django-tools==0.32.13',
     'django-uuidfield==0.5.0',
@@ -98,7 +98,7 @@ install_requires = [
     'regex==2017.05.26',
     'requests==2.24.0',
     'schwifty==2.1.0',
-    'sorl-thumbnail==12.6.3',
+    'sorl-thumbnail==12.5.0',
     'South==1.0.2',
     'Sphinx==1.6.3',
     'staticmaps-signature==0.2.0',
@@ -113,9 +113,9 @@ install_requires = [
 
     # Github requirements
     'django-exportdb @ git+https://github.com/onepercentclub/django-exportdb.git@0.4.8#egg=django-exportdb-0.4.8-github',
-    'django-tenant-extras @ git+https://github.com/onepercentclub/django-tenant-extras.git@2.0.14#egg=django-tenant-extras-2.0.14',
+    'django-tenant-extras @ git+https://github.com/jayvdb/django-tenant-extras.git@dj3-template-loader#egg=django-tenant-extras-2.0.14',
     'django-fluent-contents @ git+https://github.com/onepercentclub/django-fluent-contents.git@741ffae615a4afed01388a202709ed9a5b60e80f#egg=django-fluent-contents-1.2.1-741ffae6',
-    'django-bb-salesforce @ git+https://github.com/onepercentclub/django-bb-salesforce.git@1.2.2#egg=django-bb-salesforce-1.2.2',
+    #'django-bb-salesforce @ git+https://github.com/onepercentclub/django-bb-salesforce.git@1.2.2#egg=django-bb-salesforce-1.2.2',
     'django-taggit-autocomplete-modified @ git+https://github.com/onepercentclub/django-taggit-autocomplete-modified.git@8e7fbc2deae2f1fbb31b574bc8819d9ae7c644d6#egg=django-taggit-autocomplete-modified-0.1.1b1',
 ]
 
