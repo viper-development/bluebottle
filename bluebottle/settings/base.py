@@ -514,6 +514,11 @@ LOGGING = {
             'propagate': True,
             'level': 'ERROR',
         },
+        'django': {
+            'handlers': ['console', 'syslog'],
+            'propagate': True,
+            'level': 'INFO',
+        },
         'bluebottle': {
             'handlers': ['console', 'syslog'],
             'propagate': True,
